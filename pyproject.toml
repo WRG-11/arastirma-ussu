@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arastirma-ussu"
+version = "0.1.0"
+description = "Kisisel AI arastirma asistani — LangGraph, LlamaIndex, Qdrant, CrewAI"
+requires-python = ">=3.11"
+license = "MIT"
+
+dependencies = [
+    "langchain-core>=1.3,<2",
+    "langgraph>=1.1,<2",
+    "langchain-ollama>=0.3",
+    "httpx>=0.27",
+    "pydantic>=2.0,<3",
+    "duckduckgo-search>=7.0",
+]
+
+[project.optional-dependencies]
+layer2 = [
+    "llama-index-core",
+    "llama-index-readers-file",
+    "llama-index-embeddings-huggingface",
+]
+layer3 = [
+    "qdrant-client",
+    "fastembed",
+]
+layer4 = [
+    "crewai[tools]",
+]
+layer5 = [
+    "rouge-score",
+    "numpy",
+]
+layer55 = [
+    "ragas",
+    "datasets",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+arastirma = "arastirma_ussu.agent.graph:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "smoke: quick sanity check (no Ollama needed unless stated)",
+    "integration: needs Ollama running, slower",
+    "experimental: Layer 5.5 LLM-as-judge (deneysel)",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
