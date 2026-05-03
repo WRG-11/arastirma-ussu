@@ -77,6 +77,7 @@ def summarize(text: str) -> str:
 def build_tool_registry() -> dict[str, ToolDef]:
     """Build and return the tool registry dict."""
     from arastirma_ussu.ingest.tool import doc_search  # lazy — Layer 2
+    from arastirma_ussu.memory.tool import memory_search  # lazy — Layer 3
 
     return {
         "web_search": ToolDef(
@@ -96,6 +97,14 @@ def build_tool_registry() -> dict[str, ToolDef]:
                 "Input: search query string. Returns matching document chunks."
             ),
             func=doc_search,
+        ),
+        "memory_search": ToolDef(
+            name="memory_search",
+            description=(
+                "Search your conversation memory for relevant past questions and answers. "
+                "Input: search query string. Returns similar past Q&A pairs."
+            ),
+            func=memory_search,
         ),
     }
 

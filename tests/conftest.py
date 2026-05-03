@@ -59,3 +59,49 @@ def tmp_doc_dir(tmp_path):
         encoding="utf-8",
     )
     return doc_dir
+
+
+# ---------------------------------------------------------------------------
+# Qdrant (Layer 3+)
+# ---------------------------------------------------------------------------
+
+def qdrant_server_available() -> bool:
+    """Check if Qdrant server is reachable on localhost:6333."""
+    try:
+        req = urllib.request.Request("http://localhost:6333/readyz")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def qdrant_client_available() -> bool:
+    """Check if qdrant-client is importable."""
+    try:
+        import qdrant_client  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.fixture
+def skip_no_qdrant():
+    """Skip test if Qdrant server is not running."""
+    if not qdrant_server_available():
+        pytest.skip("Qdrant not running")
+
+
+@pytest.fixture
+def skip_no_qdrant_client():
+    """Skip test if qdrant-client is not installed."""
+    if not qdrant_client_available():
+        pytest.skip("qdrant-client not installed")
+
+
+@pytest.fixture
+def memory_client():
+    """In-memory Qdrant client for unit tests (no Docker needed)."""
+    from qdrant_client import QdrantClient
+
+    return QdrantClient(location=":memory:")

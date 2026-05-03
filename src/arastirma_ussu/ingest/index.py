@@ -1,123 +1,192 @@
-"""Vector index: chunking, embedding, persistence, and querying."""
+"""Vector index backed by Qdrant (Layer 3) or in-memory LlamaIndex (fallback)."""
 
 from __future__ import annotations
 
 import logging
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from arastirma_ussu.config import IngestConfig
+from arastirma_ussu.config import IngestConfig, QdrantConfig
 from arastirma_ussu.ingest.loader import load_documents
 
 if TYPE_CHECKING:
-    from llama_index.core import VectorStoreIndex
+    from qdrant_client import QdrantClient
 
 logger = logging.getLogger(__name__)
 
-_cfg = IngestConfig()
+_icfg = IngestConfig()
+_qcfg = QdrantConfig()
 
-# Module-level lazy singleton
-_index: VectorStoreIndex | None = None
+# Module-level state
+_client: QdrantClient | None = None
+_collection_ready: bool = False
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Qdrant client
 # ---------------------------------------------------------------------------
 
-def _build_embed_model():
-    """CPU-only HuggingFace embedding model."""
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+def _get_client() -> QdrantClient:
+    """Return a cached Qdrant client."""
+    global _client
+    if _client is None:
+        from qdrant_client import QdrantClient as _QC
 
-    return HuggingFaceEmbedding(
-        model_name=_cfg.embedding_model,
-        device="cpu",
-        embed_batch_size=32,
-    )
-
-
-def _apply_settings() -> None:
-    """Configure LlamaIndex global Settings once."""
-    from llama_index.core import Settings
-    from llama_index.core.node_parser import SentenceSplitter
-
-    Settings.llm = None  # all LLM calls go through LangGraph
-    Settings.embed_model = _build_embed_model()
-    Settings.node_parser = SentenceSplitter(
-        chunk_size=_cfg.chunk_size,
-        chunk_overlap=_cfg.chunk_overlap,
-    )
+        _client = _QC(host=_qcfg.host, port=_qcfg.port, prefer_grpc=_qcfg.prefer_grpc)
+    return _client
 
 
-def _build_index(
-    doc_dir: str | Path = _cfg.doc_dir,
-    persist_dir: str | Path = _cfg.index_dir,
+# ---------------------------------------------------------------------------
+# Collection management
+# ---------------------------------------------------------------------------
+
+def ensure_collection(client: QdrantClient | None = None) -> bool:
+    """Ensure the documents collection exists (idempotent).
+
+    Returns True if collection is ready, False if no documents and no collection.
+    """
+    global _collection_ready
+    if _collection_ready:
+        return True
+
+    c = client or _get_client()
+    col = _qcfg.documents_collection
+
+    if c.collection_exists(col):
+        _collection_ready = True
+        return True
+
+    # No collection yet — don't create empty
+    return False
+
+
+def _build_collection(
+    doc_dir: str | Path = _icfg.doc_dir,
+    client: QdrantClient | None = None,
     force_rebuild: bool = False,
-) -> VectorStoreIndex | None:
-    """Build a fresh index or load a persisted one."""
-    from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
+) -> bool:
+    """(Re)build the documents collection from data/documents/.
 
-    _apply_settings()
-    persist_path = Path(persist_dir)
+    Returns True if collection was built, False if no documents found.
+    """
+    global _collection_ready
+    from llama_index.core.node_parser import SentenceSplitter
+    from qdrant_client.models import Distance, PointStruct, VectorParams
 
-    # Try loading persisted index
-    if not force_rebuild and persist_path.exists() and any(persist_path.iterdir()):
-        try:
-            storage_ctx = StorageContext.from_defaults(persist_dir=str(persist_path))
-            index = load_index_from_storage(storage_ctx)
-            logger.info("Persisted index yuklendi: %s", persist_path)
-            return index
-        except Exception:
-            logger.warning("Persisted index bozuk, yeniden olusturuluyor", exc_info=True)
+    from arastirma_ussu.ingest.embed import embed_texts, get_embedding_dim
 
-    # Build from documents
+    c = client or _get_client()
+    col = _qcfg.documents_collection
+
+    # Delete if force rebuild
+    if force_rebuild and c.collection_exists(col):
+        c.delete_collection(col)
+        _collection_ready = False
+
+    # Load documents
     documents = load_documents(doc_dir)
     if not documents:
-        return None
+        logger.warning("Belge bulunamadi: %s", doc_dir)
+        return False
 
-    index = VectorStoreIndex.from_documents(documents)
+    # Chunk
+    splitter = SentenceSplitter(
+        chunk_size=_icfg.chunk_size,
+        chunk_overlap=_icfg.chunk_overlap,
+    )
+    nodes = splitter.get_nodes_from_documents(documents)
+    if not nodes:
+        return False
 
-    # Persist
-    persist_path.mkdir(parents=True, exist_ok=True)
-    index.storage_context.persist(persist_dir=str(persist_path))
-    logger.info("Index olusturuldu ve kaydedildi: %s", persist_path)
+    # Create collection
+    dim = get_embedding_dim()
+    if not c.collection_exists(col):
+        c.create_collection(
+            collection_name=col,
+            vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+        )
 
-    return index
+    # Embed and upsert in batches
+    batch_size = 32
+    for start in range(0, len(nodes), batch_size):
+        batch_nodes = nodes[start : start + batch_size]
+        texts = [n.get_content() for n in batch_nodes]
+        vectors = embed_texts(texts, batch_size=batch_size)
+
+        points = []
+        for j, (node, vec) in enumerate(zip(batch_nodes, vectors)):
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{node.node_id}"))
+            points.append(
+                PointStruct(
+                    id=point_id,
+                    vector=vec,
+                    payload={
+                        "text": node.get_content(),
+                        "file_name": node.metadata.get("file_name", ""),
+                        "file_path": node.metadata.get("file_path", ""),
+                        "chunk_index": start + j,
+                    },
+                )
+            )
+        c.upsert(collection_name=col, points=points)
+
+    _collection_ready = True
+    logger.info(
+        "Qdrant '%s' koleksiyonu olusturuldu: %d chunk", col, len(nodes)
+    )
+    return True
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API (same interface as Layer 2)
 # ---------------------------------------------------------------------------
 
 def ensure_index(
-    doc_dir: str | Path = _cfg.doc_dir,
-    persist_dir: str | Path = _cfg.index_dir,
+    doc_dir: str | Path = _icfg.doc_dir,
     force_rebuild: bool = False,
-) -> VectorStoreIndex | None:
-    """Return the singleton index, building it on first call."""
-    global _index
-    if _index is not None and not force_rebuild:
-        return _index
-    _index = _build_index(doc_dir, persist_dir, force_rebuild)
-    return _index
+    client: QdrantClient | None = None,
+) -> bool:
+    """Ensure the documents collection is ready.
+
+    Compatible with Layer 2 signature for graph.py REPL command.
+    Returns True if ready, False if no documents.
+    """
+    if not force_rebuild and ensure_collection(client):
+        return True
+    return _build_collection(doc_dir=doc_dir, client=client, force_rebuild=force_rebuild)
 
 
-def query_index(query: str, top_k: int = _cfg.top_k) -> str:
-    """Query the index, return formatted chunk text."""
-    index = ensure_index()
-    if index is None:
+def query_index(
+    query: str,
+    top_k: int = _icfg.top_k,
+    client: QdrantClient | None = None,
+) -> str:
+    """Query the documents collection, return formatted chunk text."""
+    from arastirma_ussu.ingest.embed import embed_query
+
+    c = client or _get_client()
+    col = _qcfg.documents_collection
+
+    if not c.collection_exists(col):
         return "Indekslenmis belge bulunamadi. data/documents/ dizinine dosya ekleyin."
 
-    retriever = index.as_retriever(similarity_top_k=top_k)
-    nodes = retriever.retrieve(query)
+    vector = embed_query(query)
+    results = c.query_points(
+        collection_name=col,
+        query=vector,
+        limit=top_k,
+        with_payload=True,
+    )
 
-    if not nodes:
+    if not results.points:
         return "Sorguyla eslesen belge parcasi bulunamadi."
 
     parts: list[str] = []
-    for i, node in enumerate(nodes, 1):
-        source = node.metadata.get("file_name", "bilinmeyen")
-        score = f"{node.score:.3f}" if node.score is not None else "N/A"
-        text = node.get_content().strip()
+    for i, point in enumerate(results.points, 1):
+        source = point.payload.get("file_name", "bilinmeyen")
+        score = f"{point.score:.3f}" if point.score is not None else "N/A"
+        text = point.payload.get("text", "").strip()
         parts.append(f"[{i}] (kaynak: {source}, skor: {score})\n{text}")
 
     return "\n\n---\n\n".join(parts)

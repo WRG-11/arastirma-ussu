@@ -217,3 +217,12 @@ def main() -> None:
 
         answer = result.get("final_answer") or result.get("error") or FALLBACK_ANSWER
         print(f"\nYanit: {answer}\n")
+
+        # Save to conversation memory (Layer 3, graceful if unavailable)
+        if result.get("final_answer"):
+            try:
+                from arastirma_ussu.memory.store import get_memory
+
+                get_memory().save(question=query, answer=result["final_answer"])
+            except Exception:
+                pass  # memory save failure must not break the REPL

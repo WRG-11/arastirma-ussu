@@ -23,9 +23,22 @@ class IngestConfig:
 
 
 @dataclass(frozen=True)
+class QdrantConfig:
+    host: str = "localhost"
+    port: int = 6333
+    grpc_port: int = 6334
+    prefer_grpc: bool = False
+    documents_collection: str = "documents"
+    conversations_collection: str = "conversations"
+    max_conversation_points: int = 5000
+    memory_score_threshold: float = 0.65
+
+
+@dataclass(frozen=True)
 class AppConfig:
     ollama: OllamaConfig = OllamaConfig()
     ingest: IngestConfig = IngestConfig()
+    qdrant: QdrantConfig = QdrantConfig()
     language: str = "tr"
     data_dir: str = "data"
     verbose: bool = False
