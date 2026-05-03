@@ -44,11 +44,11 @@ _app = build_graph()
 # ---------------------------------------------------------------------------
 
 _STATUS = {
-    "doc_search": "Belgeler taraniyor...",
-    "web_search": "Webde araniyor...",
-    "memory_search": "Hafiza kontrol ediliyor...",
-    "crew_research": "Detayli arastirma yapiliyor...",
-    "summarize": "Ozetleniyor...",
+    "doc_search": "Belgeler taranıyor...",
+    "web_search": "Web'de aranıyor...",
+    "memory_search": "Hafıza kontrol ediliyor...",
+    "crew_research": "Detaylı araştırma yapılıyor...",
+    "summarize": "Özetleniyor...",
 }
 
 
@@ -176,11 +176,11 @@ def _index_documents() -> str:
         idx = ensure_index(force_rebuild=True)
         if idx:
             return "Belgeler indekslendi."
-        return "data/documents/ dizininde belge bulunamadi."
+        return "data/documents/ dizininde belge bulunamadı."
     except ImportError:
-        return "Layer 2 yuklu degil."
+        return "Layer 2 yüklü değil."
     except Exception as e:
-        return f"Indeksleme hatasi: {e}"
+        return f"İndeksleme hatası: {e}"
 
 
 def _handle_file_upload(files: list[str]) -> str:
@@ -198,10 +198,10 @@ def _handle_file_upload(files: list[str]) -> str:
 
     if not copied:
         exts = ", ".join(sorted(_SUPPORTED_EXT))
-        return f"Desteklenmeyen dosya turu. Desteklenen: {exts}"
+        return f"Desteklenmeyen dosya türü. Desteklenen: {exts}"
 
     result = _index_documents()
-    parts = [f"Yuklenen: {', '.join(copied)}"]
+    parts = [f"Yüklenen: {', '.join(copied)}"]
     if skipped:
         parts.append(f"Atlanan: {', '.join(skipped)}")
     parts.append(result)
@@ -241,15 +241,15 @@ def respond(message: dict | str, history: list[dict]) -> Generator[str, None, No
 
 demo = gr.ChatInterface(
     fn=respond,
-    title="Arastirma Ussu",
+    title="Araştırma Üssü",
     multimodal=True,
     description=(
-        "Yerel AI arastirma asistani — qwen2.5:3B | LangGraph | Qdrant\n\n"
-        "Belge yuklemek icin dosyayi surukle veya atacsimgesine tikla (PDF, TXT, MD, DOCX)"
+        "Yerel AI araştırma asistanı — qwen2.5:3B | LangGraph | Qdrant\n\n"
+        "Belge yüklemek için dosyayı sürükle veya ataç simgesine tıkla (PDF, TXT, MD, DOCX)"
     ),
     examples=[
         {"text": "Yapay zeka nedir?"},
-        {"text": "Arastirma Ussu projesinde kac katman var?"},
+        {"text": "Araştırma Üssü projesinde kaç katman var?"},
         {"text": "indeksle"},
     ],
 )
