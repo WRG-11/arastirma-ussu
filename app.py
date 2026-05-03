@@ -1,4 +1,4 @@
-"""Gradio chat UI for Arastirma Ussu."""
+"""Gradio chat UI for Araştırma Üssü."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 # Force UTF-8 mode process-wide — must happen before any other import
-# so that open(), sys.stdout, and all libraries default to UTF-8
-# instead of Windows cp1254.
 os.environ["PYTHONUTF8"] = "1"
 for _stream_name in ("stdout", "stderr", "stdin"):
     _stream = getattr(sys, _stream_name, None)
@@ -40,8 +38,11 @@ _system_prompt = build_system_prompt(_registry)
 _app = build_graph()
 
 # ---------------------------------------------------------------------------
-# Status map for tool calls
+# Constants
 # ---------------------------------------------------------------------------
+
+_SUPPORTED_EXT = {".pdf", ".txt", ".md", ".docx"}
+_DOC_DIR = Path("data/documents")
 
 _STATUS = {
     "doc_search": "Belgeler taranıyor...",
@@ -50,6 +51,23 @@ _STATUS = {
     "crew_research": "Detaylı araştırma yapılıyor...",
     "summarize": "Özetleniyor...",
 }
+
+_WELCOME = """\
+Merhaba! Ben **Araştırma Üssü**, yerel AI araştırma asistanınım.
+
+**Neler yapabilirim:**
+- Sorularınızı araştırıp Türkçe cevaplarım
+- Belgelerinizi (PDF, TXT, MD, DOCX) indeksleyip içinden bilgi bulurum
+- Önceki konuşmalarımızı hatırlarım
+- Web'den güncel bilgi ararım
+
+**Nasıl kullanılır:**
+- Soru yazın ve gönderin
+- Dosya yüklemek için ataç simgesine tıklayın
+- `indeksle` yazarak belgeleri yeniden indeksleyin
+
+*qwen2.5:3B modeli ile tamamen yerel çalışıyorum — verileriniz bilgisayarınızdan çıkmaz.*\
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -127,12 +145,10 @@ def _maybe_translate_query(query: str) -> str:
     if not words:
         return query
     tr_count = sum(1 for w in words if w in _TR_WORDS)
-    # If more than 20% Turkish words, it's already Turkish
     if tr_count / len(words) > 0.2:
         return query
-    # Heuristic: short query with no Turkish words → likely English
     if len(words) < 3:
-        return query  # too short to judge
+        return query
     try:
         from arastirma_ussu.agent.graph import _create_llm
         llm = _create_llm()
@@ -154,8 +170,11 @@ def _maybe_translate_query(query: str) -> str:
 def _stream_agent(
     query: str, history: list[dict] | None = None,
 ) -> Generator[str, None, None]:
-    """Run agent with streaming status + typing effect."""
-    # Translate English queries to Turkish
+    """Run agent with streaming status + typing effect.
+
+    Yields partial answer strings. The last yield is the complete answer
+    with metadata footer appended.
+    """
     query = _maybe_translate_query(query)
 
     history_msgs = _history_to_messages(history or [])
@@ -175,35 +194,47 @@ def _stream_agent(
     }
 
     # Stream graph events — show status per tool call
+    start = time.time()
     final_state = {}
+    tools_used: list[str] = []
+
     for event in _app.stream(initial_state):
         for node_name, update in event.items():
             final_state = {**final_state, **update}
             if node_name == "reason":
                 action = update.get("last_action", "")
                 if action and action in _STATUS:
+                    tools_used.append(action)
                     yield f"*{_STATUS[action]}*"
 
-    # Guard pipeline (blocking, before user sees answer)
+    elapsed = time.time() - start
+
+    # Guard pipeline
     answer = _apply_guards(final_state, query)
 
     # Save to memory
     _save_memory(query, answer)
 
-    # Typing effect — yield progressively longer substrings
+    # Build metadata footer
+    tool_labels = {
+        "doc_search": "Belge", "web_search": "Web",
+        "memory_search": "Hafıza", "crew_research": "Ekip",
+        "summarize": "Özet",
+    }
+    used = list(dict.fromkeys(tools_used))  # dedupe, keep order
+    tool_str = ", ".join(tool_labels.get(t, t) for t in used) if used else "Doğrudan"
+    meta = f"\n\n---\n*{elapsed:.1f}s · Kaynak: {tool_str}*"
+
+    # Typing effect
     for i in range(0, len(answer), 4):
         yield answer[: i + 4]
         time.sleep(0.01)
-    yield answer  # ensure complete text
+    yield answer + meta
 
 
 # ---------------------------------------------------------------------------
 # File upload + index
 # ---------------------------------------------------------------------------
-
-_SUPPORTED_EXT = {".pdf", ".txt", ".md", ".docx"}
-_DOC_DIR = Path("data/documents")
-
 
 def _index_documents() -> str:
     """Re-index documents in data/documents/."""
@@ -246,12 +277,54 @@ def _handle_file_upload(files: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Gradio interface
+# Sidebar helpers
+# ---------------------------------------------------------------------------
+
+def _get_doc_list() -> str:
+    """Return markdown list of indexed documents."""
+    if not _DOC_DIR.exists():
+        return "*Belge yok*"
+    files = sorted(
+        f for f in _DOC_DIR.iterdir()
+        if f.is_file() and f.suffix.lower() in _SUPPORTED_EXT
+    )
+    if not files:
+        return "*Belge yok*"
+    lines = [f"- `{f.name}` ({f.stat().st_size / 1024:.0f} KB)" for f in files]
+    return "\n".join(lines)
+
+
+def _get_memory_count() -> str:
+    """Return conversation memory point count."""
+    try:
+        from arastirma_ussu.memory.store import get_memory
+        count = get_memory().count()
+        return f"**{count}** kayıt (max 5000)"
+    except Exception:
+        return "Bağlantı yok"
+
+
+def _clear_memory() -> str:
+    """Clear conversation memory."""
+    try:
+        from arastirma_ussu.memory.store import get_memory
+        get_memory().clear()
+        return "Hafıza temizlendi."
+    except Exception:
+        return "Hata oluştu."
+
+
+def _refresh_sidebar():
+    """Return updated sidebar values."""
+    return _get_doc_list(), _get_memory_count()
+
+
+# ---------------------------------------------------------------------------
+# Gradio Blocks layout
 # ---------------------------------------------------------------------------
 
 def respond(message: dict | str, history: list[dict]) -> Generator[str, None, None]:
     """Gradio chat callback — generator for streaming."""
-    # Multimodal: message can be {"text": ..., "files": [...]}
     if isinstance(message, dict):
         text = (message.get("text") or "").strip()
         files = message.get("files") or []
@@ -259,13 +332,11 @@ def respond(message: dict | str, history: list[dict]) -> Generator[str, None, No
         text = message.strip()
         files = []
 
-    # Handle file uploads
     if files:
         yield _handle_file_upload(files)
         if not text:
             return
 
-    # Index command
     if text.lower() in ("indeksle", "reindex", "index"):
         yield _index_documents()
         return
@@ -276,20 +347,108 @@ def respond(message: dict | str, history: list[dict]) -> Generator[str, None, No
     yield from _stream_agent(text, history)
 
 
-demo = gr.ChatInterface(
-    fn=respond,
-    title="Araştırma Üssü",
-    multimodal=True,
-    description=(
-        "Yerel AI araştırma asistanı — qwen2.5:3B | LangGraph | Qdrant\n\n"
-        "Belge yüklemek için dosyayı sürükle veya ataç simgesine tıkla (PDF, TXT, MD, DOCX)"
-    ),
-    examples=[
-        {"text": "Yapay zeka nedir?"},
-        {"text": "Araştırma Üssü projesinde kaç katman var?"},
-        {"text": "indeksle"},
-    ],
-)
+with gr.Blocks(title="Araştırma Üssü") as demo:
+
+    # --- Header ---
+    gr.Markdown("# Araştırma Üssü")
+    gr.Markdown(
+        "Yerel AI araştırma asistanı — qwen2.5:3B | LangGraph | Qdrant"
+    )
+
+    with gr.Row():
+        # --- Main chat area (left, wider) ---
+        with gr.Column(scale=3):
+            chatbot = gr.Chatbot(
+                value=[{"role": "assistant", "content": _WELCOME}],
+                height=520,
+                render_markdown=True,
+                buttons=["copy"],
+            )
+            msg = gr.MultimodalTextbox(
+                placeholder="Sorunuzu yazın veya dosya yükleyin...",
+                file_count="multiple",
+                show_label=False,
+            )
+
+        # --- Sidebar (right, narrower) ---
+        with gr.Column(scale=1, min_width=250):
+            gr.Markdown("### Belgeler")
+            doc_list = gr.Markdown(_get_doc_list())
+            index_btn = gr.Button("Yeniden İndeksle", size="sm")
+            index_status = gr.Markdown("")
+
+            gr.Markdown("---")
+            gr.Markdown("### Konuşma Hafızası")
+            mem_count = gr.Markdown(_get_memory_count())
+            clear_btn = gr.Button("Hafızayı Temizle", size="sm", variant="stop")
+            clear_status = gr.Markdown("")
+
+            gr.Markdown("---")
+            gr.Markdown("### Hızlı Sorular")
+            ex1 = gr.Button("Yapay zeka nedir?", size="sm", variant="secondary")
+            ex2 = gr.Button("Kaç katman var?", size="sm", variant="secondary")
+            ex3 = gr.Button("Python nedir?", size="sm", variant="secondary")
+
+    # --- Event handlers ---
+
+    def user_submit(message, history):
+        """Add user message to history."""
+        if isinstance(message, dict):
+            text = (message.get("text") or "").strip()
+        else:
+            text = message.strip()
+        if not text:
+            return history, gr.MultimodalTextbox(value=None)
+        history = history + [{"role": "user", "content": text}]
+        return history, gr.MultimodalTextbox(value=None)
+
+    def bot_respond(message, history):
+        """Stream bot response."""
+        if not history:
+            return history
+        # Handle file uploads from multimodal input
+        if isinstance(message, dict):
+            files = message.get("files") or []
+            if files:
+                upload_result = _handle_file_upload(files)
+                history = history + [{"role": "assistant", "content": upload_result}]
+                yield history
+
+        user_msg = history[-1]["content"] if history and history[-1]["role"] == "user" else ""
+        if not user_msg:
+            return history
+
+        # Streaming response
+        history = history + [{"role": "assistant", "content": ""}]
+        for chunk in respond(user_msg, history[:-1]):
+            history[-1]["content"] = chunk
+            yield history
+
+    def do_index():
+        result = _index_documents()
+        return result, _get_doc_list()
+
+    def do_clear():
+        result = _clear_memory()
+        return result, _get_memory_count()
+
+    def ask_example(question):
+        return gr.MultimodalTextbox(value={"text": question})
+
+    # Wire events
+    submit_event = msg.submit(
+        user_submit, [msg, chatbot], [chatbot, msg]
+    ).then(
+        bot_respond, [msg, chatbot], chatbot
+    ).then(
+        _refresh_sidebar, None, [doc_list, mem_count]
+    )
+
+    index_btn.click(do_index, None, [index_status, doc_list])
+    clear_btn.click(do_clear, None, [clear_status, mem_count])
+    ex1.click(ask_example, gr.State("Yapay zeka nedir?"), msg)
+    ex2.click(ask_example, gr.State("Araştırma Üssü projesinde kaç katman var?"), msg)
+    ex3.click(ask_example, gr.State("Python nedir?"), msg)
 
 if __name__ == "__main__":
     demo.launch(server_name="127.0.0.1", server_port=7861)
