@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import time
 from collections.abc import Generator
+from pathlib import Path
 
 # Force UTF-8 mode process-wide — must happen before any other import
 # so that open(), sys.stdout, and all libraries default to UTF-8
@@ -159,8 +161,12 @@ def _stream_agent(
 
 
 # ---------------------------------------------------------------------------
-# Index documents
+# File upload + index
 # ---------------------------------------------------------------------------
+
+_SUPPORTED_EXT = {".pdf", ".txt", ".md", ".docx"}
+_DOC_DIR = Path("data/documents")
+
 
 def _index_documents() -> str:
     """Re-index documents in data/documents/."""
@@ -177,29 +183,74 @@ def _index_documents() -> str:
         return f"Indeksleme hatasi: {e}"
 
 
+def _handle_file_upload(files: list[str]) -> str:
+    """Copy uploaded files to data/documents/ and trigger re-indexing."""
+    _DOC_DIR.mkdir(parents=True, exist_ok=True)
+    copied, skipped = [], []
+
+    for file_path in files:
+        p = Path(file_path)
+        if p.suffix.lower() not in _SUPPORTED_EXT:
+            skipped.append(p.name)
+            continue
+        shutil.copy2(str(p), str(_DOC_DIR / p.name))
+        copied.append(p.name)
+
+    if not copied:
+        exts = ", ".join(sorted(_SUPPORTED_EXT))
+        return f"Desteklenmeyen dosya turu. Desteklenen: {exts}"
+
+    result = _index_documents()
+    parts = [f"Yuklenen: {', '.join(copied)}"]
+    if skipped:
+        parts.append(f"Atlanan: {', '.join(skipped)}")
+    parts.append(result)
+    return "\n".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Gradio interface
 # ---------------------------------------------------------------------------
 
-def respond(message: str, history: list[dict]) -> Generator[str, None, None]:
+def respond(message: dict | str, history: list[dict]) -> Generator[str, None, None]:
     """Gradio chat callback — generator for streaming."""
-    if message.strip().lower() in ("indeksle", "reindex", "index"):
+    # Multimodal: message can be {"text": ..., "files": [...]}
+    if isinstance(message, dict):
+        text = (message.get("text") or "").strip()
+        files = message.get("files") or []
+    else:
+        text = message.strip()
+        files = []
+
+    # Handle file uploads
+    if files:
+        yield _handle_file_upload(files)
+        if not text:
+            return
+
+    # Index command
+    if text.lower() in ("indeksle", "reindex", "index"):
         yield _index_documents()
         return
-    yield from _stream_agent(message, history)
+
+    if not text:
+        return
+
+    yield from _stream_agent(text, history)
 
 
 demo = gr.ChatInterface(
     fn=respond,
     title="Arastirma Ussu",
+    multimodal=True,
     description=(
         "Yerel AI arastirma asistani — dolphin-mistral:7B | LangGraph | Qdrant\n\n"
-        '*\"indeksle\" yazarak `data/documents/` klasorundeki belgeleri indeksleyebilirsin.*'
+        "Belge yuklemek icin dosyayi surukle veya atacsimgesine tikla (PDF, TXT, MD, DOCX)"
     ),
     examples=[
-        "Yapay zeka nedir?",
-        "Arastirma Ussu projesinde kac katman var?",
-        "indeksle",
+        {"text": "Yapay zeka nedir?"},
+        {"text": "Arastirma Ussu projesinde kac katman var?"},
+        {"text": "indeksle"},
     ],
 )
 
