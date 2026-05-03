@@ -42,6 +42,12 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - [x] Layer 5: Security & Deterministic Quality — 7 guard, action whitelist, 41 test
 - [ ] Layer 5.5: RAGAS LLM-as-Judge (opsiyonel/deneysel)
 
+## Yarin Yapilacaklar (2026-05-04)
+- [ ] AI trailer rebase: git rebase -i HEAD~12, Co-Authored-By satirlarini sil
+- [ ] Integration full run: make qdrant-up && pytest -m integration -v (Ollama acikken)
+- [ ] Manuel REPL testi: arastirma → indeksle → soru sor → hafiza zinciri calisiyor mu?
+- [ ] Karar: Layer 5.5 RAGAS yapilsin mi, yoksa proje burada bitti mi?
+
 ## Sik Komutlar
 ```bash
 source .venv/Scripts/activate
