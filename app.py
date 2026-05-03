@@ -20,7 +20,7 @@ for _stream_name in ("stdout", "stderr", "stdin"):
             pass
 
 import gradio as gr
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from arastirma_ussu.agent.graph import (
     DEFAULT_MAX_ITERATIONS,
@@ -92,14 +92,38 @@ def _save_memory(query: str, answer: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Conversation history
+# ---------------------------------------------------------------------------
+
+def _history_to_messages(history: list[dict], max_turns: int = 3) -> list[BaseMessage]:
+    """Convert Gradio chat history to LangChain messages for context."""
+    recent = history[-(max_turns * 2):]
+    messages: list[BaseMessage] = []
+    for entry in recent:
+        role = entry.get("role", "")
+        content = (entry.get("content") or "")[:300]
+        if not content:
+            continue
+        if role == "user":
+            messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
+    return messages
+
+
+# ---------------------------------------------------------------------------
 # Streaming agent
 # ---------------------------------------------------------------------------
 
-def _stream_agent(query: str) -> Generator[str, None, None]:
+def _stream_agent(
+    query: str, history: list[dict] | None = None,
+) -> Generator[str, None, None]:
     """Run agent with streaming status + typing effect."""
+    history_msgs = _history_to_messages(history or [])
     initial_state: AgentState = {
         "messages": [
             SystemMessage(content=_system_prompt),
+            *history_msgs,
             HumanMessage(content=query),
         ],
         "iteration": 0,
@@ -162,7 +186,7 @@ def respond(message: str, history: list[dict]) -> Generator[str, None, None]:
     if message.strip().lower() in ("indeksle", "reindex", "index"):
         yield _index_documents()
         return
-    yield from _stream_agent(message)
+    yield from _stream_agent(message, history)
 
 
 demo = gr.ChatInterface(

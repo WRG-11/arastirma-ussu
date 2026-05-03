@@ -35,6 +35,20 @@ def _is_conversational(query: str) -> bool:
     return any(k in q for k in _CONVERSATIONAL_KW) and len(q.split()) < 8
 
 
+_FOLLOWUP_KW = {
+    "bunu", "devam", "acikla", "detay", "ornekle", "neden", "nasil",
+    "daha fazla", "kisaca", "ozetle", "tekrar",
+}
+
+
+def _is_followup(query: str, num_messages: int) -> bool:
+    """True for follow-up questions that reference previous conversation."""
+    if num_messages <= 2:  # system + user only, no history
+        return False
+    q = query.lower().strip()
+    return any(k in q for k in _FOLLOWUP_KW) and len(q.split()) < 8
+
+
 # ---------------------------------------------------------------------------
 # Routing (module-level so tests can import it)
 # ---------------------------------------------------------------------------
@@ -120,7 +134,9 @@ def build_graph(
                     if state.get("messages")
                     else ""
                 )
-                if not _is_conversational(user_query):
+                num_msgs = len(state.get("messages", []))
+                if (not _is_conversational(user_query)
+                        and not _is_followup(user_query, num_msgs)):
                     # Memory-related keywords → memory_search first
                     _mem_kw = ("hatirla", "hatirliy", "daha once", "gecen",
                                "onceki", "sormustum", "konustuk", "soyledim",
