@@ -76,6 +76,8 @@ def summarize(text: str) -> str:
 
 def build_tool_registry() -> dict[str, ToolDef]:
     """Build and return the tool registry dict."""
+    from arastirma_ussu.ingest.tool import doc_search  # lazy — Layer 2
+
     return {
         "web_search": ToolDef(
             name="web_search",
@@ -86,6 +88,14 @@ def build_tool_registry() -> dict[str, ToolDef]:
             name="summarize",
             description="Summarize a long text into key points. Input: the text to summarize.",
             func=summarize,
+        ),
+        "doc_search": ToolDef(
+            name="doc_search",
+            description=(
+                "Search your local document library for relevant information. "
+                "Input: search query string. Returns matching document chunks."
+            ),
+            func=doc_search,
         ),
     }
 

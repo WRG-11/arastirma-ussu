@@ -163,7 +163,7 @@ def build_graph(
 def main() -> None:
     """Interactive REPL — ``arastirma`` console_script."""
     print("Arastirma Ussu — AI Arastirma Asistani")
-    print("Cikmak icin 'q' yazin.\n")
+    print("Komutlar: 'q' cikis | 'indeksle' belge indeksleme\n")
 
     app = build_graph()
     registry = build_tool_registry()
@@ -181,6 +181,22 @@ def main() -> None:
             break
 
         if not query:
+            continue
+
+        if query.lower() in ("indeksle", "reindex", "index"):
+            print("Belgeler indeksleniyor...")
+            try:
+                from arastirma_ussu.ingest.index import ensure_index
+
+                idx = ensure_index(force_rebuild=True)
+                if idx:
+                    print("Indeksleme tamamlandi.\n")
+                else:
+                    print("data/documents/ dizininde belge bulunamadi.\n")
+            except ImportError:
+                print("Layer 2 yuklu degil. pip install -e '.[layer2]'\n")
+            except Exception as e:
+                print(f"Indeksleme hatasi: {e}\n")
             continue
 
         initial_state: AgentState = {
