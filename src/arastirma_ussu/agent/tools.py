@@ -36,13 +36,43 @@ class ToolDef:
 # Tool implementations
 # ---------------------------------------------------------------------------
 
+def _translate_query_to_english(query: str) -> str:
+    """Translate a Turkish query to English for better DuckDuckGo results."""
+    try:
+        from langchain_ollama import ChatOllama
+        from langchain_core.messages import HumanMessage as HMsg
+
+        from arastirma_ussu.config import OllamaConfig
+
+        cfg = OllamaConfig()
+        llm = ChatOllama(
+            model=cfg.model, base_url=cfg.base_url,
+            temperature=0.1, num_predict=64, num_ctx=2048,
+        )
+        resp = llm.invoke([HMsg(
+            content=f"Translate to English. Output ONLY the translation:\n{query}"
+        )])
+        translated = resp.content.strip().split("\n")[0].strip()
+        if translated and len(translated) > 3:
+            return translated
+    except Exception:
+        pass
+    return query
+
+
 def web_search(query: str) -> str:
-    """Search the web via DuckDuckGo and return top results."""
+    """Search the web via DuckDuckGo and return top results.
+
+    Translates Turkish queries to English for better search quality.
+    """
     from duckduckgo_search import DDGS  # lazy — no network in smoke tests
+
+    # Translate to English for better DuckDuckGo results
+    en_query = _translate_query_to_english(query)
 
     try:
         with DDGS() as ddgs:
-            results = ddgs.text(query, region="tr-tr", max_results=3)
+            results = ddgs.text(en_query, max_results=3)
         if not results:
             return "Arama sonucu bulunamadi."
         lines: list[str] = []

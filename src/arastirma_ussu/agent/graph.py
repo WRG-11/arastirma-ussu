@@ -162,12 +162,24 @@ def build_graph(
             }
 
         if isinstance(parsed, ReActAction):
+            action = parsed.action
+            action_input = parsed.action_input
+            # First turn: prefer doc_search over web_search
+            # (web_search returns irrelevant results for local project queries)
+            if iteration == 1 and action == "web_search":
+                user_query = (
+                    state["messages"][-1].content
+                    if state.get("messages") else ""
+                )
+                if not _is_conversational(user_query):
+                    action = "doc_search"
+                    action_input = user_query
             return {
                 "messages": new_messages,
                 "iteration": iteration,
                 "final_answer": "",
-                "last_action": parsed.action,
-                "last_action_input": parsed.action_input,
+                "last_action": action,
+                "last_action_input": action_input,
                 "error": "",
             }
 
