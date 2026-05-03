@@ -2,8 +2,25 @@
 
 from __future__ import annotations
 
+import os
+import sys
+import time
+from collections.abc import Generator
+
+# Force UTF-8 mode process-wide — must happen before any other import
+# so that open(), sys.stdout, and all libraries default to UTF-8
+# instead of Windows cp1254.
+os.environ["PYTHONUTF8"] = "1"
+for _stream_name in ("stdout", "stderr", "stdin"):
+    _stream = getattr(sys, _stream_name, None)
+    if _stream and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
 import gradio as gr
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from arastirma_ussu.agent.graph import (
     DEFAULT_MAX_ITERATIONS,
@@ -20,27 +37,27 @@ _registry = build_tool_registry()
 _system_prompt = build_system_prompt(_registry)
 _app = build_graph()
 
+# ---------------------------------------------------------------------------
+# Status map for tool calls
+# ---------------------------------------------------------------------------
 
-def _run_agent(query: str) -> str:
-    """Run the full agent pipeline and return the answer string."""
-    initial_state: AgentState = {
-        "messages": [
-            SystemMessage(content=_system_prompt),
-            HumanMessage(content=query),
-        ],
-        "iteration": 0,
-        "max_iterations": DEFAULT_MAX_ITERATIONS,
-        "last_action": "",
-        "last_action_input": "",
-        "last_observation": "",
-        "final_answer": "",
-        "error": "",
-    }
+_STATUS = {
+    "doc_search": "Belgeler taraniyor...",
+    "web_search": "Webde araniyor...",
+    "memory_search": "Hafiza kontrol ediliyor...",
+    "crew_research": "Detayli arastirma yapiliyor...",
+    "summarize": "Ozetleniyor...",
+}
 
-    result = _app.invoke(initial_state)
+
+# ---------------------------------------------------------------------------
+# Guard pipeline helper
+# ---------------------------------------------------------------------------
+
+def _apply_guards(result: dict, query: str) -> str:
+    """Run guard pipeline on result, return final answer string."""
     answer = result.get("final_answer") or result.get("error") or FALLBACK_ANSWER
 
-    # Guard pipeline
     if result.get("final_answer"):
         try:
             from arastirma_ussu.guards import GuardInput, Severity, run_guards
@@ -61,17 +78,65 @@ def _run_agent(query: str) -> str:
         except Exception:
             pass
 
-    # Save to memory
-    if result.get("final_answer") and answer != FALLBACK_ANSWER:
+    return answer
+
+
+def _save_memory(query: str, answer: str) -> None:
+    """Save Q&A to conversation memory if answer is valid."""
+    if answer and answer != FALLBACK_ANSWER:
         try:
             from arastirma_ussu.memory.store import get_memory
-
-            get_memory().save(question=query, answer=result["final_answer"])
+            get_memory().save(question=query, answer=answer)
         except Exception:
             pass
 
-    return answer
 
+# ---------------------------------------------------------------------------
+# Streaming agent
+# ---------------------------------------------------------------------------
+
+def _stream_agent(query: str) -> Generator[str, None, None]:
+    """Run agent with streaming status + typing effect."""
+    initial_state: AgentState = {
+        "messages": [
+            SystemMessage(content=_system_prompt),
+            HumanMessage(content=query),
+        ],
+        "iteration": 0,
+        "max_iterations": DEFAULT_MAX_ITERATIONS,
+        "last_action": "",
+        "last_action_input": "",
+        "last_observation": "",
+        "final_answer": "",
+        "error": "",
+    }
+
+    # Stream graph events — show status per tool call
+    final_state = {}
+    for event in _app.stream(initial_state):
+        for node_name, update in event.items():
+            final_state = {**final_state, **update}
+            if node_name == "reason":
+                action = update.get("last_action", "")
+                if action and action in _STATUS:
+                    yield f"*{_STATUS[action]}*"
+
+    # Guard pipeline (blocking, before user sees answer)
+    answer = _apply_guards(final_state, query)
+
+    # Save to memory
+    _save_memory(query, answer)
+
+    # Typing effect — yield progressively longer substrings
+    for i in range(0, len(answer), 4):
+        yield answer[: i + 4]
+        time.sleep(0.01)
+    yield answer  # ensure complete text
+
+
+# ---------------------------------------------------------------------------
+# Index documents
+# ---------------------------------------------------------------------------
 
 def _index_documents() -> str:
     """Re-index documents in data/documents/."""
@@ -88,11 +153,16 @@ def _index_documents() -> str:
         return f"Indeksleme hatasi: {e}"
 
 
-def respond(message: str, history: list[dict]) -> str:
-    """Gradio chat callback."""
+# ---------------------------------------------------------------------------
+# Gradio interface
+# ---------------------------------------------------------------------------
+
+def respond(message: str, history: list[dict]) -> Generator[str, None, None]:
+    """Gradio chat callback — generator for streaming."""
     if message.strip().lower() in ("indeksle", "reindex", "index"):
-        return _index_documents()
-    return _run_agent(message)
+        yield _index_documents()
+        return
+    yield from _stream_agent(message)
 
 
 demo = gr.ChatInterface(
