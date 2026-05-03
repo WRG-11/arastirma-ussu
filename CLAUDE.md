@@ -37,7 +37,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - [x] Layer 0: Bootstrap (toolcall sanity: FAIL → manuel ReAct)
 - [x] Layer 1: Basic Agent (LangGraph + Ollama) — ReAct regex parser, 23 smoke + 3 integration
 - [x] Layer 2: Data Connection (LlamaIndex) — doc_search, MiniLM CPU embed, 13 test
-- [ ] Layer 3: Smart Memory (Qdrant)
+- [x] Layer 3: Smart Memory (Qdrant) — 2 koleksiyon, hybrid embed, LRU 5k, 20 test
 - [ ] Layer 4: Multi-Agent (CrewAI)
 - [ ] Layer 5: Security & Deterministic Quality
 - [ ] Layer 5.5: RAGAS LLM-as-Judge (opsiyonel/deneysel)
