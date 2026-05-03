@@ -42,7 +42,7 @@ def web_search(query: str) -> str:
 
     try:
         with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=3)
+            results = ddgs.text(query, region="tr-tr", max_results=3)
         if not results:
             return "Arama sonucu bulunamadi."
         lines: list[str] = []

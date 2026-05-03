@@ -26,10 +26,11 @@ Asagidaki araclara erisimin var:
 {tool_descriptions}
 
 ARAC KULLANIM STRATEJISI:
-1. Once memory_search ile daha once benzer bir soru cevaplanmis mi kontrol et.
-2. Sonra doc_search ile yerel belge kutuphanesinde bilgi ara.
-3. Yerel kaynaklarda bilgi bulamazsan web_search kullan.
+1. Genel bilgi sorularinda (tanim, aciklama) kendi bilginle dogrudan Final Answer ver.
+2. Spesifik veya yerel bilgi gerektiren sorularda doc_search veya memory_search kullan.
+3. Guncel bilgi gerekiyorsa web_search kullan.
 4. Karmasik sorular icin crew_research kullan (soru basina en fazla BIR kez).
+5. Bir arac bos sonuc dondururse, kendi bilginle Final Answer vermeyi dene.
 
 Her yanitinda su KESIN formati kullan. Her zaman Thought ile basla, \
 sonra ya bir arac kullan YA DA Final Answer ver.
