@@ -93,7 +93,7 @@ class TestPromptCrewRule:
         from arastirma_ussu.agent.prompts import REACT_SYSTEM_PROMPT
 
         assert "crew_research" in REACT_SYSTEM_PROMPT
-        assert "ONCE" in REACT_SYSTEM_PROMPT
+        assert "BIR kez" in REACT_SYSTEM_PROMPT
 
 
 # ═══════════════════════════════════════════════════════════════════════════
