@@ -201,6 +201,17 @@ def build_graph(
         action = state.get("last_action", "")
         action_input = state.get("last_action_input", "")
 
+        # Guard: block crew_research unless user explicitly requested deep analysis
+        if action == "crew_research":
+            user_msg = state["messages"][1].content if len(state.get("messages", [])) > 1 else ""
+            _deep_kw = ("detayli", "detaylı", "derin", "kapsamli", "kapsamlı", "arastir", "araştır")
+            if not any(k in user_msg.lower() for k in _deep_kw):
+                observation = "crew_research sadece detayli arastirma istendiginde kullanilir. Kendi bilginle Final Answer ver."
+                return {
+                    "messages": [HumanMessage(content=OBSERVATION_TEMPLATE.format(observation=observation))],
+                    "last_observation": observation,
+                }
+
         if action not in _registry:
             observation = (
                 f"Hata: '{action}' bilinmeyen bir arac. "

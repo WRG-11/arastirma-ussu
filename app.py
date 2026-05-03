@@ -114,6 +114,40 @@ def _history_to_messages(history: list[dict], max_turns: int = 3) -> list[BaseMe
 
 
 # ---------------------------------------------------------------------------
+# English → Turkish query translation
+# ---------------------------------------------------------------------------
+
+_TR_WORDS = {"ve", "ile", "bir", "bu", "ne", "nedir", "nasil", "nasıl", "kaç",
+             "kac", "neden", "kim", "hangi", "var", "yok", "icin", "için"}
+
+
+def _maybe_translate_query(query: str) -> str:
+    """If query looks English, translate to Turkish before agent runs."""
+    words = query.lower().split()
+    if not words:
+        return query
+    tr_count = sum(1 for w in words if w in _TR_WORDS)
+    # If more than 20% Turkish words, it's already Turkish
+    if tr_count / len(words) > 0.2:
+        return query
+    # Heuristic: short query with no Turkish words → likely English
+    if len(words) < 3:
+        return query  # too short to judge
+    try:
+        from arastirma_ussu.agent.graph import _create_llm
+        llm = _create_llm()
+        resp = llm.invoke([HumanMessage(
+            content=f"Translate this to Turkish. Only output the Turkish translation:\n{query}"
+        )])
+        translated = resp.content.strip().split("\n")[0].strip()
+        if translated and len(translated) > 5:
+            return translated
+    except Exception:
+        pass
+    return query
+
+
+# ---------------------------------------------------------------------------
 # Streaming agent
 # ---------------------------------------------------------------------------
 
@@ -121,6 +155,9 @@ def _stream_agent(
     query: str, history: list[dict] | None = None,
 ) -> Generator[str, None, None]:
     """Run agent with streaming status + typing effect."""
+    # Translate English queries to Turkish
+    query = _maybe_translate_query(query)
+
     history_msgs = _history_to_messages(history or [])
     initial_state: AgentState = {
         "messages": [

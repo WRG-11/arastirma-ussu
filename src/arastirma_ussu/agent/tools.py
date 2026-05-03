@@ -110,9 +110,9 @@ def build_tool_registry() -> dict[str, ToolDef]:
         "crew_research": ToolDef(
             name="crew_research",
             description=(
-                "Delegate a complex research question to a multi-agent analysis crew. "
-                "Use ONCE per question as the final analysis step — do not retry. "
-                "Input: research question with any context data gathered so far."
+                "Delegate to a multi-agent crew for DEEP research ONLY. "
+                "NEVER use for simple questions. Use ONLY when the user explicitly "
+                "asks for detailed/deep analysis. Use at most ONCE. Very slow (~60s)."
             ),
             func=crew_research,
         ),

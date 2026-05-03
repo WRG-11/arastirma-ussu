@@ -55,6 +55,11 @@ KURALLAR:
 - Bir arac hata dondururse ne yanlis gittigini dusun ve farkli dene
 - crew_research bir FINAL sentez adimidir — soru basina en fazla BIR kez cagir
 - Final Answer her zaman TURKCE olmali
+
+ORNEK:
+Kullanici: Yapay zeka nedir?
+Thought: Bu genel bir bilgi sorusu, kendi bilgimle cevaplayabilirim.
+Final Answer: Yapay zeka, bilgisayar sistemlerinin insan zekasini taklit etmesini saglayan bir teknoloji dalıdır. Makine ogrenimi, derin ogrenme ve dogal dil isleme gibi alt dallari vardir.
 """
 
 OBSERVATION_TEMPLATE = "\nObservation: {observation}\n"
