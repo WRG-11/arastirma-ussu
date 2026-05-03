@@ -178,6 +178,32 @@ def build_graph(
 
 
 # ---------------------------------------------------------------------------
+# Turkish retry — single LLM call to translate English drift
+# ---------------------------------------------------------------------------
+
+_TR_TRANSLATE_PROMPT = (
+    "Asagidaki metni TURKCEYE cevir. SADECE Turkce ceviriyi yaz, "
+    "Ingilizce hicbir sey ekleme. Kisa ve oz tut:\n\n{text}"
+)
+
+
+def _retry_turkish(english_answer: str) -> str:
+    """Ask the LLM to translate an English-drifted answer to Turkish."""
+    try:
+        llm = _create_llm()
+        prompt = _TR_TRANSLATE_PROMPT.format(text=english_answer[:500])
+        response = llm.invoke([HumanMessage(content=prompt)])
+        translated = response.content.strip()
+        # Take only the first paragraph — LLM tends to drift back to English
+        first_para = translated.split("\n\n")[0].strip()
+        if first_para and len(first_para) > 20:
+            return first_para
+    except Exception:
+        pass
+    return english_answer  # fallback: return original if translation fails
+
+
+# ---------------------------------------------------------------------------
 # Source extraction for guard pipeline (action whitelist)
 # ---------------------------------------------------------------------------
 
@@ -220,8 +246,25 @@ def _extract_sources(messages: list) -> list[str]:
 # CLI entry-point
 # ---------------------------------------------------------------------------
 
+def _ensure_utf8_stdio() -> None:
+    """Force stdout/stderr to UTF-8 on Windows (cp1254 default breaks Turkish)."""
+    import io
+    import sys
+
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        elif stream.encoding and stream.encoding.lower() != "utf-8":
+            setattr(
+                sys, stream_name,
+                io.TextIOWrapper(stream.buffer, encoding="utf-8", errors="replace"),
+            )
+
+
 def main() -> None:
     """Interactive REPL — ``arastirma`` console_script."""
+    _ensure_utf8_stdio()
     print("Arastirma Ussu — AI Arastirma Asistani")
     print("Komutlar: 'q' cikis | 'indeksle' belge indeksleme\n")
 
@@ -292,9 +335,17 @@ def main() -> None:
                             print(f"  [GUARD FAIL] {r.guard_name}: {r.message}")
                     answer = FALLBACK_ANSWER
                 elif verdict.severity == Severity.WARN:
-                    for r in verdict.results:
-                        if r.severity == Severity.WARN:
-                            print(f"  [GUARD WARN] {r.guard_name}: {r.message}")
+                    # Check if language drift is the cause
+                    lang_warn = any(
+                        r.guard_name == "check_language" and r.severity == Severity.WARN
+                        for r in verdict.results
+                    )
+                    if lang_warn:
+                        answer = _retry_turkish(answer)
+                    else:
+                        for r in verdict.results:
+                            if r.severity == Severity.WARN:
+                                print(f"  [GUARD WARN] {r.guard_name}: {r.message}")
             except ImportError:
                 pass  # Layer 5 not installed
             except Exception:
