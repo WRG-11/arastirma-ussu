@@ -9,6 +9,7 @@ class OllamaConfig:
     model: str = "dolphin-mistral"
     temperature: float = 0.7
     max_tokens: int = 1024
+    intermediate_max_tokens: int = 512
     timeout: int = 120
 
 

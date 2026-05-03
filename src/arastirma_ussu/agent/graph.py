@@ -16,7 +16,23 @@ from arastirma_ussu.agent.state import AgentState
 from arastirma_ussu.agent.tools import ToolDef, build_tool_registry
 from arastirma_ussu.config import OllamaConfig
 
-DEFAULT_MAX_ITERATIONS = 6
+DEFAULT_MAX_ITERATIONS = 4
+
+
+# ---------------------------------------------------------------------------
+# Query classification helpers
+# ---------------------------------------------------------------------------
+
+_CONVERSATIONAL_KW = {
+    "merhaba", "selam", "nasilsin", "tesekkur", "sagol", "hosca",
+    "ne yapabilirsin", "yardim", "hello", "hi", "thanks",
+}
+
+
+def _is_conversational(query: str) -> bool:
+    """True for greetings/chitchat that don't need tool calls."""
+    q = query.lower().strip()
+    return any(k in q for k in _CONVERSATIONAL_KW) and len(q.split()) < 8
 
 
 # ---------------------------------------------------------------------------
@@ -42,13 +58,16 @@ def route(state: AgentState) -> str:
 # LLM factory
 # ---------------------------------------------------------------------------
 
-def _create_llm(config: OllamaConfig | None = None) -> ChatOllama:
+def _create_llm(
+    config: OllamaConfig | None = None, *, intermediate: bool = False,
+) -> ChatOllama:
     cfg = config or OllamaConfig()
+    tokens = cfg.intermediate_max_tokens if intermediate else cfg.max_tokens
     return ChatOllama(
         model=cfg.model,
         base_url=cfg.base_url,
         temperature=0.3,  # low for ReAct format compliance
-        num_predict=cfg.max_tokens,
+        num_predict=tokens,
         num_ctx=8192,  # dolphin-mistral default is 2048 — too small
     )
 
@@ -66,6 +85,7 @@ def build_graph(
     Parameters let tests inject a mock LLM / custom registry.
     """
     _llm = llm or _create_llm()
+    _llm_short = llm or _create_llm(intermediate=True)
     _registry = registry or build_tool_registry()
 
     # -- nodes ---------------------------------------------------------------
@@ -75,7 +95,9 @@ def build_graph(
         iteration = state.get("iteration", 0) + 1
 
         try:
-            response = _llm.invoke(state["messages"])
+            # Use shorter token budget for intermediate reasoning turns
+            active_llm = _llm if iteration <= 1 else _llm_short
+            response = active_llm.invoke(state["messages"])
             raw_text: str = response.content
         except Exception as e:
             return {
@@ -91,26 +113,29 @@ def build_graph(
 
         if isinstance(parsed, ReActFinalAnswer):
             # Guard: first turn must use a tool, not jump to Final Answer
+            # Exception: conversational queries (greetings etc.) skip tool call
             if iteration == 1:
                 user_query = (
                     state["messages"][-1].content
                     if state.get("messages")
                     else ""
                 )
-                # Memory-related keywords → memory_search first
-                _mem_kw = ("hatirla", "hatirliy", "daha once", "gecen", "onceki",
-                           "sormustum", "konustuk", "soyledim", "remember")
-                fallback_tool = "memory_search" if any(
-                    k in user_query.lower() for k in _mem_kw
-                ) else "doc_search"
-                return {
-                    "messages": new_messages,
-                    "iteration": iteration,
-                    "final_answer": "",
-                    "last_action": fallback_tool,
-                    "last_action_input": user_query,
-                    "error": "",
-                }
+                if not _is_conversational(user_query):
+                    # Memory-related keywords → memory_search first
+                    _mem_kw = ("hatirla", "hatirliy", "daha once", "gecen",
+                               "onceki", "sormustum", "konustuk", "soyledim",
+                               "remember")
+                    fallback_tool = "memory_search" if any(
+                        k in user_query.lower() for k in _mem_kw
+                    ) else "doc_search"
+                    return {
+                        "messages": new_messages,
+                        "iteration": iteration,
+                        "final_answer": "",
+                        "last_action": fallback_tool,
+                        "last_action_input": user_query,
+                        "error": "",
+                    }
             return {
                 "messages": new_messages,
                 "iteration": iteration,
