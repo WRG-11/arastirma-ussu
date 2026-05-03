@@ -90,6 +90,27 @@ def build_graph(
         new_messages = [AIMessage(content=raw_text)]
 
         if isinstance(parsed, ReActFinalAnswer):
+            # Guard: first turn must use a tool, not jump to Final Answer
+            if iteration == 1:
+                user_query = (
+                    state["messages"][-1].content
+                    if state.get("messages")
+                    else ""
+                )
+                # Memory-related keywords → memory_search first
+                _mem_kw = ("hatirla", "hatirliy", "daha once", "gecen", "onceki",
+                           "sormustum", "konustuk", "soyledim", "remember")
+                fallback_tool = "memory_search" if any(
+                    k in user_query.lower() for k in _mem_kw
+                ) else "doc_search"
+                return {
+                    "messages": new_messages,
+                    "iteration": iteration,
+                    "final_answer": "",
+                    "last_action": fallback_tool,
+                    "last_action_input": user_query,
+                    "error": "",
+                }
             return {
                 "messages": new_messages,
                 "iteration": iteration,
