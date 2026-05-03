@@ -19,14 +19,14 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Dil: Kullaniciya Turkce / Kod+degisken Ingilizce
 - Git: `git add .` YASAK — dosya ismiyle stage et
 - Multi-session: branch izolasyonu (session/<kisa-tanim>)
-- VRAM: RTX 4070 8GB. dolphin-mistral:7B tek model. Ikinci model YUKLEME.
+- VRAM: RTX 4070 8GB. qwen2.5:7B tek model. Ikinci model YUKLEME.
 - Venv: .venv DAIMA aktif. Global pip'e DOKUNMA.
 - CI yok, pre-commit yok (kisisel proje, agirlik katma)
 
 ## Teknoloji Stack
 - Python 3.12, venv .venv/
 - LangGraph (orkestrasyon) + LangChain (thin adapter, sadece model/tool protocol)
-- Ollama: dolphin-mistral:7B (tek model, Garak ile paylasilir)
+- Ollama: qwen2.5:7B (tek model, cok dilli, Turkce guclu)
 - Layer 2: LlamaIndex (veri okuma/indeksleme)
 - Layer 3: Qdrant (vektor DB, ChromaDB yerine)
 - Layer 4: CrewAI (multi-agent, LangGraph tool olarak cagirilir)

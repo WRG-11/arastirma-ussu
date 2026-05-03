@@ -1,4 +1,4 @@
-"""ReAct prompt templates for dolphin-mistral."""
+"""ReAct prompt templates for the research agent LLM."""
 
 from __future__ import annotations
 
@@ -53,7 +53,6 @@ KURALLAR:
 - Yanitin hazirsa "Final Answer:" kullan — baska arac cagirma
 - Bir arac hata dondururse ne yanlis gittigini dusun ve farkli dene
 - crew_research bir FINAL sentez adimidir — soru basina en fazla BIR kez cagir
-- ASLA ilk turda Final Answer verme — once en az bir arac cagir
 - Final Answer her zaman TURKCE olmali
 """
 

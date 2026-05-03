@@ -244,7 +244,7 @@ demo = gr.ChatInterface(
     title="Arastirma Ussu",
     multimodal=True,
     description=(
-        "Yerel AI arastirma asistani — dolphin-mistral:7B | LangGraph | Qdrant\n\n"
+        "Yerel AI arastirma asistani — qwen2.5:7B | LangGraph | Qdrant\n\n"
         "Belge yuklemek icin dosyayi surukle veya atacsimgesine tikla (PDF, TXT, MD, DOCX)"
     ),
     examples=[
