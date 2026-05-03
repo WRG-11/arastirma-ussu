@@ -131,6 +131,23 @@ class TestConversationMemorySmoke:
         mem.clear()
         assert mem.count() == 0
 
+    def test_lru_eviction(self, memory_client, monkeypatch):
+        """With MAX_POINTS=2, inserting 3 records should evict the oldest."""
+        import arastirma_ussu.memory.store as store_mod
+        from arastirma_ussu.memory.store import ConversationMemory
+
+        monkeypatch.setattr(store_mod, "MAX_POINTS", 2)
+        mem = ConversationMemory(client=memory_client, collection="test_lru")
+        mem.save("oldest question", "oldest answer")
+        mem.save("middle question", "middle answer")
+        mem.save("newest question", "newest answer")
+
+        assert mem.count() == 2
+        # oldest should be evicted; search for it should return nothing
+        results = mem.search("oldest question", score_threshold=0.0)
+        answers = [r["answer"] for r in results]
+        assert "oldest answer" not in answers
+
 
 @pytest.mark.smoke
 class TestDocumentIndexSmoke:

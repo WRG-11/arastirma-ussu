@@ -43,7 +43,7 @@ class ConversationMemory:
 
     def _ensure_collection(self) -> None:
         """Create collection if it does not exist (idempotent)."""
-        from qdrant_client.models import Distance, VectorParams
+        from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 
         from arastirma_ussu.ingest.embed import get_embedding_dim
 
@@ -55,6 +55,11 @@ class ConversationMemory:
                 size=get_embedding_dim(),
                 distance=Distance.COSINE,
             ),
+        )
+        self._client.create_payload_index(
+            collection_name=self._collection,
+            field_name="timestamp",
+            field_schema=PayloadSchemaType.KEYWORD,
         )
 
     # ------------------------------------------------------------------
