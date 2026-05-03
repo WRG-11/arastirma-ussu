@@ -20,8 +20,10 @@ def _create_crew_llm(crew_cfg: CrewConfig = _ccfg, ollama_cfg: OllamaConfig = _o
         model=f"ollama/{ollama_cfg.model}",
         base_url=ollama_cfg.base_url,
         temperature=crew_cfg.temperature,
-        num_ctx=8192,
         timeout=crew_cfg.llm_request_timeout,
+        # num_ctx is set in the Ollama Modelfile (8192), not here —
+        # CrewAI's litellm passes unknown kwargs to OpenAI-compat API
+        # which rejects them (Completions.create() TypeError).
     )
 
 
