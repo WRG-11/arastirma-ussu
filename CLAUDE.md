@@ -39,7 +39,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - [x] Layer 2: Data Connection (LlamaIndex) — doc_search, MiniLM CPU embed, 13 test
 - [x] Layer 3: Smart Memory (Qdrant) — 2 koleksiyon, hybrid embed, LRU 5k, 20 test
 - [x] Layer 4: Multi-Agent (CrewAI) — tool-less sequential, allow_delegation=False, 17 test
-- [ ] Layer 5: Security & Deterministic Quality
+- [x] Layer 5: Security & Deterministic Quality — 7 guard, action whitelist, 41 test
 - [ ] Layer 5.5: RAGAS LLM-as-Judge (opsiyonel/deneysel)
 
 ## Sik Komutlar
