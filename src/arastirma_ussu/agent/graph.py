@@ -130,7 +130,22 @@ def build_graph(
                 "error": "",
             }
 
-        # Parse failure
+        # Parse failure — salvage: if we already used a tool (iteration > 1),
+        # treat the raw text as a best-effort final answer instead of an error
+        if iteration > 1 and len(raw_text.strip()) > 30:
+            # Strip "Thought:" prefix if present
+            salvaged = raw_text.strip()
+            if salvaged.lower().startswith("thought:"):
+                salvaged = salvaged.split(":", 1)[1].strip()
+            return {
+                "messages": new_messages,
+                "iteration": iteration,
+                "final_answer": salvaged,
+                "last_action": "",
+                "last_action_input": "",
+                "error": "",
+            }
+
         return {
             "messages": new_messages,
             "iteration": iteration,

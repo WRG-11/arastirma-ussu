@@ -39,6 +39,9 @@ layer55 = [
     "ragas",
     "datasets",
 ]
+ui = [
+    "gradio>=6.0",
+]
 dev = [
     "pytest",
     "pytest-asyncio",

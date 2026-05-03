@@ -32,6 +32,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Layer 4: CrewAI (multi-agent, LangGraph tool olarak cagirilir)
 - Layer 5: Deterministik kalite metrikleri + guard pipeline (ai-security'den fork)
 - Layer 5.5: RAGAS LLM-as-judge (opsiyonel, deneysel, kullaniciya gosterilmez)
+- UI: Gradio chat arayuzu (app.py, port 7861)
 
 ## Katman Durumu
 - [x] Layer 0: Bootstrap (toolcall sanity: FAIL → manuel ReAct)
@@ -67,4 +68,5 @@ make layer1                          # Layer 1 smoke
 make lint                            # ruff check
 make qdrant-up / make qdrant-down    # Layer 3 Qdrant Docker
 make clean                           # __pycache__ vb. temizlik
+python app.py                        # Gradio chat UI (http://127.0.0.1:7861)
 ```
