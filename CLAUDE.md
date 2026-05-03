@@ -35,7 +35,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 
 ## Katman Durumu (guncelle!)
 - [x] Layer 0: Bootstrap (toolcall sanity: FAIL → manuel ReAct)
-- [ ] Layer 1: Basic Agent (LangGraph + Ollama)
+- [x] Layer 1: Basic Agent (LangGraph + Ollama) — ReAct regex parser, 23 smoke + 3 integration
 - [ ] Layer 2: Data Connection (LlamaIndex)
 - [ ] Layer 3: Smart Memory (Qdrant)
 - [ ] Layer 4: Multi-Agent (CrewAI)
