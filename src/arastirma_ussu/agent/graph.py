@@ -157,6 +157,45 @@ def build_graph(
 
 
 # ---------------------------------------------------------------------------
+# Source extraction for guard pipeline (action whitelist)
+# ---------------------------------------------------------------------------
+
+_SOURCE_ACTIONS = {"web_search", "doc_search", "memory_search"}
+
+
+def _extract_sources(messages: list) -> list[str]:
+    """Extract tool observations from ground-truth actions only.
+
+    crew_research and summarize outputs are LLM-generated, not ground-truth,
+    so they are excluded to prevent tautological ROUGE scores.
+    """
+    from arastirma_ussu.agent.parser import parse_react_output, ReActAction
+
+    sources: list[str] = []
+    last_action: str | None = None
+
+    for msg in messages:
+        # Track the last action from AI messages
+        if isinstance(msg, AIMessage):
+            parsed = parse_react_output(msg.content)
+            if isinstance(parsed, ReActAction):
+                last_action = parsed.action
+            else:
+                last_action = None
+        # Collect observations from whitelisted actions
+        elif isinstance(msg, HumanMessage) and last_action in _SOURCE_ACTIONS:
+            content = msg.content.strip()
+            prefix = "\nObservation:"
+            if content.startswith(prefix):
+                content = content[len(prefix):].strip()
+            if content:
+                sources.append(content)
+            last_action = None
+
+    return sources
+
+
+# ---------------------------------------------------------------------------
 # CLI entry-point
 # ---------------------------------------------------------------------------
 
@@ -216,10 +255,34 @@ def main() -> None:
         result = app.invoke(initial_state)
 
         answer = result.get("final_answer") or result.get("error") or FALLBACK_ANSWER
+
+        # Layer 5: Guard pipeline (deterministic quality + security)
+        if result.get("final_answer"):
+            try:
+                from arastirma_ussu.guards import GuardInput, Severity, run_guards
+
+                sources = _extract_sources(result.get("messages", []))
+                verdict = run_guards(GuardInput(
+                    answer=result["final_answer"], query=query, sources=sources,
+                ))
+                if verdict.severity == Severity.FAIL:
+                    for r in verdict.results:
+                        if r.severity == Severity.FAIL:
+                            print(f"  [GUARD FAIL] {r.guard_name}: {r.message}")
+                    answer = FALLBACK_ANSWER
+                elif verdict.severity == Severity.WARN:
+                    for r in verdict.results:
+                        if r.severity == Severity.WARN:
+                            print(f"  [GUARD WARN] {r.guard_name}: {r.message}")
+            except ImportError:
+                pass  # Layer 5 not installed
+            except Exception:
+                pass  # guard failure must not break the REPL
+
         print(f"\nYanit: {answer}\n")
 
-        # Save to conversation memory (Layer 3, graceful if unavailable)
-        if result.get("final_answer"):
+        # Save to conversation memory (Layer 3, only if guards didn't fail)
+        if result.get("final_answer") and answer != FALLBACK_ANSWER:
             try:
                 from arastirma_ussu.memory.store import get_memory
 

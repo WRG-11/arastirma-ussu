@@ -126,3 +126,24 @@ def skip_no_crewai():
     """Skip test if crewai is not installed."""
     if not crewai_available():
         pytest.skip("crewai not installed")
+
+
+# ---------------------------------------------------------------------------
+# ROUGE (Layer 5+)
+# ---------------------------------------------------------------------------
+
+def rouge_available() -> bool:
+    """Check if rouge-score is importable."""
+    try:
+        import rouge_score  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.fixture
+def skip_no_rouge():
+    """Skip test if rouge-score is not installed."""
+    if not rouge_available():
+        pytest.skip("rouge-score not installed")

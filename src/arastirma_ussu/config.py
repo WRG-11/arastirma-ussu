@@ -44,11 +44,25 @@ class CrewConfig:
 
 
 @dataclass(frozen=True)
+class GuardConfig:
+    min_answer_length: int = 10
+    warn_answer_length: int = 30
+    repetition_warn_ratio: float = 0.5
+    repetition_fail_ratio: float = 0.3
+    rouge_warn_threshold: float = 0.10
+    min_tr_stopwords: int = 2
+    enable_pii_check: bool = True
+    enable_injection_check: bool = True
+    enable_rouge: bool = True
+
+
+@dataclass(frozen=True)
 class AppConfig:
     ollama: OllamaConfig = OllamaConfig()
     ingest: IngestConfig = IngestConfig()
     qdrant: QdrantConfig = QdrantConfig()
     crew: CrewConfig = CrewConfig()
+    guard: GuardConfig = GuardConfig()
     language: str = "tr"
     data_dir: str = "data"
     verbose: bool = False
