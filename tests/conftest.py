@@ -105,3 +105,24 @@ def memory_client():
     from qdrant_client import QdrantClient
 
     return QdrantClient(location=":memory:")
+
+
+# ---------------------------------------------------------------------------
+# CrewAI (Layer 4+)
+# ---------------------------------------------------------------------------
+
+def crewai_available() -> bool:
+    """Check if crewai is importable."""
+    try:
+        import crewai  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.fixture
+def skip_no_crewai():
+    """Skip test if crewai is not installed."""
+    if not crewai_available():
+        pytest.skip("crewai not installed")

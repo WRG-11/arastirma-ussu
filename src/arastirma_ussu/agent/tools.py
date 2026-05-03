@@ -76,6 +76,7 @@ def summarize(text: str) -> str:
 
 def build_tool_registry() -> dict[str, ToolDef]:
     """Build and return the tool registry dict."""
+    from arastirma_ussu.crew.tool import crew_research  # lazy — Layer 4
     from arastirma_ussu.ingest.tool import doc_search  # lazy — Layer 2
     from arastirma_ussu.memory.tool import memory_search  # lazy — Layer 3
 
@@ -105,6 +106,15 @@ def build_tool_registry() -> dict[str, ToolDef]:
                 "Input: search query string. Returns similar past Q&A pairs."
             ),
             func=memory_search,
+        ),
+        "crew_research": ToolDef(
+            name="crew_research",
+            description=(
+                "Delegate a complex research question to a multi-agent analysis crew. "
+                "Use ONCE per question as the final analysis step — do not retry. "
+                "Input: research question with any context data gathered so far."
+            ),
+            func=crew_research,
         ),
     }
 

@@ -39,6 +39,7 @@ IMPORTANT RULES:
 - Do NOT emit Action and Final Answer in the same turn — pick one
 - When you have the answer, use "Final Answer:" — do not call another tool
 - If a tool returns an error, think about what went wrong and try differently
+- crew_research is a FINAL synthesis step — call it at most ONCE per question
 """
 
 OBSERVATION_TEMPLATE = "\nObservation: {observation}\n"

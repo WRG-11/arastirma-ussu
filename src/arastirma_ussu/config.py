@@ -35,11 +35,20 @@ class QdrantConfig:
 
 
 @dataclass(frozen=True)
+class CrewConfig:
+    timeout: int = 600               # global crew execution timeout (seconds)
+    max_agent_iter: int = 3          # max ReAct iterations per agent
+    temperature: float = 0.4         # LLM temperature for crew agents
+    verbose: bool = False            # CrewAI verbose logging
+    llm_request_timeout: int = 60    # per-request Ollama timeout (seconds)
+
+
+@dataclass(frozen=True)
 class AppConfig:
     ollama: OllamaConfig = OllamaConfig()
     ingest: IngestConfig = IngestConfig()
     qdrant: QdrantConfig = QdrantConfig()
+    crew: CrewConfig = CrewConfig()
     language: str = "tr"
     data_dir: str = "data"
     verbose: bool = False
-    crew_timeout_warn: int = 600  # seconds — Layer 4 stopwatch threshold
