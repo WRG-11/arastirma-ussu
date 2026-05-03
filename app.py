@@ -451,4 +451,4 @@ with gr.Blocks(title="Araştırma Üssü") as demo:
     ex3.click(ask_example, gr.State("Python nedir?"), msg)
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7861)
+    demo.launch(server_name="127.0.0.1", server_port=7861, i18n="tr")
