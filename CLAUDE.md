@@ -33,20 +33,28 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Layer 5: Deterministik kalite metrikleri + guard pipeline (ai-security'den fork)
 - Layer 5.5: RAGAS LLM-as-judge (opsiyonel, deneysel, kullaniciya gosterilmez)
 
-## Katman Durumu (guncelle!)
+## Katman Durumu
 - [x] Layer 0: Bootstrap (toolcall sanity: FAIL → manuel ReAct)
 - [x] Layer 1: Basic Agent (LangGraph + Ollama) — ReAct regex parser, 23 smoke + 3 integration
 - [x] Layer 2: Data Connection (LlamaIndex) — doc_search, MiniLM CPU embed, 13 test
 - [x] Layer 3: Smart Memory (Qdrant) — 2 koleksiyon, hybrid embed, LRU 5k, 20 test
 - [x] Layer 4: Multi-Agent (CrewAI) — tool-less sequential, allow_delegation=False, 17 test
 - [x] Layer 5: Security & Deterministic Quality — 7 guard, action whitelist, 41 test
+- [x] E2E: REPL canlı test (2026-05-03) — RAG, hafıza zinciri, guard pipeline calisiyor
 - [ ] Layer 5.5: RAGAS LLM-as-Judge (opsiyonel/deneysel)
 
-## Yarin Yapilacaklar (2026-05-04)
-- [ ] AI trailer rebase: git rebase -i HEAD~12, Co-Authored-By satirlarini sil
-- [ ] Integration full run: make qdrant-up && pytest -m integration -v (Ollama acikken)
-- [ ] Manuel REPL testi: arastirma → indeksle → soru sor → hafiza zinciri calisiyor mu?
-- [ ] Karar: Layer 5.5 RAGAS yapilsin mi, yoksa proje burada bitti mi?
+## E2E Test Sonuclari (2026-05-03)
+- 111/111 smoke test PASSED
+- REPL: soru→doc_search→Turkce cevap calisiyor
+- RAG: belge indeksle→Qdrant→doc_search sorgusu calisiyor
+- Hafiza: memory_search onceki Q&A cifleri buluyor
+- Guard: check_language Ingilizce drift'i yakaliyor, _retry_turkish ceviriye gonderiyor
+- Encoding: _ensure_utf8_stdio Windows cp1254→UTF-8 zorluyor
+
+## Bilinen Sinirlamalar
+- dolphin-mistral:7B Turkce'de zayif — prompt+guard+retry 3 katmanli savunma var ama %100 degil
+- Ilk tur guard: LLM tool cagirmadan Final Answer verirse doc_search/memory_search'e zorlanir
+- pyarrow import sirasinda Windows access violation uyarisi — test sonucunu etkilemiyor
 
 ## Sik Komutlar
 ```bash
