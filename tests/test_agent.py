@@ -14,7 +14,13 @@ from arastirma_ussu.agent.tools import (
     build_tool_registry,
     summarize,
 )
-from arastirma_ussu.agent.graph import build_graph, route
+from arastirma_ussu.agent.graph import (
+    build_graph,
+    route,
+    _is_conversational,
+    _is_followup,
+    _extract_sources,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Smoke tests — no Ollama needed
@@ -193,6 +199,70 @@ class TestRoute:
 
     def test_empty_state_ends(self):
         assert route(self._state()) == END
+
+
+@pytest.mark.smoke
+class TestIsConversational:
+    def test_greeting_detected(self):
+        assert _is_conversational("merhaba") is True
+
+    def test_selam_detected(self):
+        assert _is_conversational("Selam nasilsin") is True
+
+    def test_long_query_not_conversational(self):
+        assert _is_conversational("merhaba bu proje hakkinda detayli bilgi verir misin") is False
+
+    def test_technical_query_not_conversational(self):
+        assert _is_conversational("Python 3.12 yenilikleri nelerdir") is False
+
+
+@pytest.mark.smoke
+class TestIsFollowup:
+    def test_no_history_not_followup(self):
+        assert _is_followup("bunu acikla", num_messages=2) is False
+
+    def test_followup_with_history(self):
+        assert _is_followup("bunu acikla", num_messages=5) is True
+
+    def test_long_not_followup(self):
+        assert _is_followup("bunu detayli bir sekilde acikla ve orneklerle destekle", num_messages=5) is False
+
+    def test_new_topic_not_followup(self):
+        assert _is_followup("Python nedir ve ne ise yarar", num_messages=5) is False
+
+
+@pytest.mark.smoke
+class TestExtractSources:
+    def test_empty_messages(self):
+        assert _extract_sources([]) == []
+
+    def test_web_search_extracted(self):
+        from langchain_core.messages import AIMessage, HumanMessage
+        messages = [
+            AIMessage(content="Thought: search\nAction: web_search\nAction Input: python"),
+            HumanMessage(content="\nObservation: Python is a programming language."),
+        ]
+        sources = _extract_sources(messages)
+        assert len(sources) == 1
+        assert "Python" in sources[0]
+
+    def test_summarize_excluded(self):
+        from langchain_core.messages import AIMessage, HumanMessage
+        messages = [
+            AIMessage(content="Thought: summarize\nAction: summarize\nAction Input: text"),
+            HumanMessage(content="\nObservation: Summary of text."),
+        ]
+        sources = _extract_sources(messages)
+        assert len(sources) == 0
+
+    def test_crew_research_excluded(self):
+        from langchain_core.messages import AIMessage, HumanMessage
+        messages = [
+            AIMessage(content="Thought: deep\nAction: crew_research\nAction Input: topic"),
+            HumanMessage(content="\nObservation: Deep analysis result."),
+        ]
+        sources = _extract_sources(messages)
+        assert len(sources) == 0
 
 
 @pytest.mark.smoke

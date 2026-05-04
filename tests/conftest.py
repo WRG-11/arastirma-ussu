@@ -102,8 +102,7 @@ def skip_no_qdrant_client():
 @pytest.fixture
 def memory_client():
     """In-memory Qdrant client for unit tests (no Docker needed)."""
-    from qdrant_client import QdrantClient
-
+    QdrantClient = pytest.importorskip("qdrant_client", reason="qdrant-client not installed").QdrantClient
     return QdrantClient(location=":memory:")
 
 

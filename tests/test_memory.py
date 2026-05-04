@@ -201,7 +201,7 @@ class TestDocumentIndexSmoke:
 
 @pytest.mark.integration
 class TestQdrantServerIntegration:
-    def test_memory_save_and_search(self, skip_no_qdrant):
+    def test_memory_save_and_search(self, skip_no_qdrant_client, skip_no_qdrant):
         from arastirma_ussu.memory.store import ConversationMemory
 
         mem = ConversationMemory(collection="test_integration_conv")
@@ -213,7 +213,7 @@ class TestQdrantServerIntegration:
         finally:
             mem.clear()
 
-    def test_document_index_rebuild(self, skip_no_qdrant, skip_no_llamaindex, tmp_doc_dir):
+    def test_document_index_rebuild(self, skip_no_qdrant_client, skip_no_qdrant, skip_no_llamaindex, tmp_doc_dir):
         import arastirma_ussu.ingest.index as idx_mod
 
         old_client = idx_mod._client
