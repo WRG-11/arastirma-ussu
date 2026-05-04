@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class OllamaConfig:
     base_url: str = "http://localhost:11434"
-    model: str = "qwen2.5:3b"
+    model: str = "qwen2.5:7b"
     temperature: float = 0.7
     max_tokens: int = 1024
     intermediate_max_tokens: int = 512
