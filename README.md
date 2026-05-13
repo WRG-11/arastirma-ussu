@@ -1,5 +1,10 @@
 # Arastirma Ussu
 
+[![CI](https://github.com/WRG-11/arastirma-ussu/actions/workflows/ci.yml/badge.svg)](https://github.com/WRG-11/arastirma-ussu/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](https://www.python.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-70%25-brightgreen)](#)
+
 > Kisisel AI arastirma asistani. 5 katman tum stack hazir, lokal-first
 > (Ollama + Qdrant), production-RAG patterns. E2E canli (2026-05-03).
 
@@ -63,6 +68,9 @@ calismasi minimum gereksinim.
 ## Kurulum
 
 ```bash
+git clone https://github.com/WRG-11/arastirma-ussu.git
+cd arastirma-ussu
+
 python -m venv .venv
 source .venv/Scripts/activate   # Windows + Git Bash
 # veya: .venv\Scripts\Activate.ps1  (PowerShell)
@@ -80,10 +88,10 @@ L1 calismasi icin lokal Ollama gerek:
 
 ```bash
 ollama serve &
-ollama pull qwen2.5:3b   # tek model, cok dilli, Turkce guclu, hizli
+ollama pull qwen2.5:7b   # tek model, cok dilli, Turkce guclu, ~4.5GB VRAM
 ```
 
-Tek model disiplini (RTX 4070 8GB VRAM): ikinci model yukleme.
+Tek model disiplini (RTX 4070 8GB VRAM): ikinci model yukleme yok.
 `OLLAMA_HOST` env var ile harici instance da kullanilabilir.
 
 ### Layer 3 — Qdrant Docker
@@ -112,7 +120,7 @@ python app.py    # Gradio chat UI (http://127.0.0.1:7861)
 - **Lokal-first**: Tum LLM ve embedding cagrilari default olarak lokal
   (Ollama, fastembed, MiniLM CPU). Web aramasi opt-in.
 - **Katman-zorunlu degil**: L2/L3/L4 olmadan da L1 calisir.
-- **Tek model disiplini**: VRAM kisitlari (8GB) → qwen2.5:3B tek model.
+- **Tek model disiplini**: VRAM kisitlari (8GB) → qwen2.5:7B tek model (~4.5GB).
 - **Determinik testler**: Her katmanin ayri pytest hedefi var; LLM
   cagrilari fixture'lara cevrilebilir.
 - **Sessiz varsayilan, konuskan opsiyon**: verbose/debug/json opt-in.
@@ -132,8 +140,9 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 
 ## Bilinen Sinirlamalar
 
-- `dolphin-mistral:7B` (eski deneme) Turkce'de zayif — qwen2.5:3B'ye
-  gecildi; prompt + guard + retry 3 katmanli savunma var ama %100 degil.
+- Model evrimi: `dolphin-mistral:7B` (Turkce zayif) → `qwen2.5:3B`
+  (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite icin upgrade); prompt
+  + guard + retry 3 katmanli savunma var ama %100 degil.
 - Ilk tur guard: LLM tool cagirmadan Final Answer verirse `doc_search` /
   `memory_search`'e zorlanir.
 - `pyarrow` import sirasinda Windows access violation uyarisi —
