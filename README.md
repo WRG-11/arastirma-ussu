@@ -1,30 +1,30 @@
-# Arastirma Ussu
+# Araştırma Üssü
 
 [![CI](https://github.com/WRG-11/arastirma-ussu/actions/workflows/ci.yml/badge.svg)](https://github.com/WRG-11/arastirma-ussu/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](https://www.python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-70%25-brightgreen)](#)
+[![Coverage](https://img.shields.io/badge/coverage-72%25-brightgreen)](#)
 
-> Kisisel AI arastirma asistani. 5 katman tum stack hazir, lokal-first
-> (Ollama + Qdrant), production-RAG patterns. E2E canli (2026-05-03).
+> Kişisel AI araştırma asistanı. 5 katman tüm stack hazır, lokal-first
+> (Ollama + Qdrant), production-RAG patterns. E2E canlı (2026-05-03).
 
-`arastirma-ussu`, kucuk olcekli arastirmacilarin gunluk soru-cevap, dokuman
-tarama ve uzun donemli not-tutma akislarini tek bir yerden yonetebilmesi
-icin tasarlanmis acik kaynakli bir AI asistanidir. Tasarim hedefi: **buyuk
-SaaS RAG yiginlarinin 3-katmanli guard + semantik cache + golden eval
-pattern'lerini solo bir kullanici icin tek-makine olceginde yeniden
-uretmek**.
+`arastirma-ussu`, küçük ölçekli araştırmacıların günlük soru-cevap, doküman
+tarama ve uzun dönemli not-tutma akışlarını tek bir yerden yönetebilmesi
+için tasarlanmış açık kaynaklı bir AI asistanıdır. Tasarım hedefi: **büyük
+SaaS RAG yığınlarının 3-katmanlı guard + semantik cache + golden eval
+pattern'lerini solo bir kullanıcı için tek-makine ölçeğinde yeniden
+üretmek**.
 
 ## Neden?
 
-| Problem | Cozumumuz |
+| Problem | Çözümümüz |
 |--------|-----------|
-| Ticari RAG araclari pahali + veri-onleyici | Tum LLM cagrilari Ollama uzerinden lokal |
-| Tek-katmanli LLM yanitlari guvensiz | 3-katmanli guard (input + retrieval + output) |
-| Cevaplar zamanla siniflanamiyor | Qdrant + persistent memory layer |
-| Coklu kaynak takibi zor | LlamaIndex doc-store + DuckDuckGo web cache |
+| Ticari RAG araçları pahalı + veri-önleyici | Tüm LLM çağrıları Ollama üzerinden lokal |
+| Tek-katmanlı LLM yanıtları güvensiz | 3-katmanlı guard (input + retrieval + output) |
+| Cevaplar zamanla sınıflanamıyor | Qdrant + persistent memory layer |
+| Çoklu kaynak takibi zor | LlamaIndex doc-store + DuckDuckGo web cache |
 
-## 5-Katmanli Mimari (tamami uygulanmis)
+## 5-Katmanlı Mimari (tamamı uygulanmış)
 
 ```
 +------------------------------------------------------+
@@ -52,17 +52,17 @@ uretmek**.
 | 5 | Quality & Security | 7 guard + action whitelist | ✓ (41 test) |
 | 5.5 | RAGAS LLM-as-Judge | opsiyonel/deneysel | ✓ end-to-end (7 contract + 2 Ollama-judge golden) |
 
-Her katman `pip install -e ".[layerN]"` extras'i ile aktive edilir; L1
-calismasi minimum gereksinim.
+Her katman `pip install -e ".[layerN]"` extras'ı ile aktive edilir; L1
+çalışması minimum gereksinim.
 
-## E2E Durum (2026-05-03 canli test)
+## E2E Durum (2026-05-03 canlı test)
 
 - **111/111 smoke test PASSED**.
-- REPL: soru → `doc_search` → Turkce cevap calisiyor.
-- RAG: belge indeksle → Qdrant → `doc_search` sorgusu calisiyor.
-- Hafiza: `memory_search` onceki Q&A ciftlerini buluyor.
-- Guard: `check_language` Ingilizce drift'i yakaliyor, `_retry_turkish`
-  ceviriye gonderiyor.
+- REPL: soru → `doc_search` → Türkçe cevap çalışıyor.
+- RAG: belge indeksle → Qdrant → `doc_search` sorgusu çalışıyor.
+- Hafıza: `memory_search` önceki Q&A çiftlerini buluyor.
+- Guard: `check_language` İngilizce drift'i yakalıyor, `_retry_turkish`
+  çeviriye gönderiyor.
 - Encoding: `_ensure_utf8_stdio` Windows cp1254 → UTF-8 zorluyor.
 
 ## Kurulum
@@ -78,21 +78,21 @@ source .venv/Scripts/activate   # Windows + Git Bash
 # Minimum (L0 + L1):
 pip install -e ".[dev]"
 
-# L2 ve sonrasi icin extras:
+# L2 ve sonrası için extras:
 pip install -e ".[layer2,layer3,layer4,layer5,dev]"
 ```
 
 ### Ollama gereksinimi
 
-L1 calismasi icin lokal Ollama gerek:
+L1 çalışması için lokal Ollama gerek:
 
 ```bash
 ollama serve &
-ollama pull qwen2.5:7b   # tek model, cok dilli, Turkce guclu, ~4.5GB VRAM
+ollama pull qwen2.5:7b   # tek model, çok dilli, Türkçe güçlü, ~4.5GB VRAM
 ```
 
-Tek model disiplini (RTX 4070 8GB VRAM): ikinci model yukleme yok.
-`OLLAMA_HOST` env var ile harici instance da kullanilabilir.
+Tek model disiplini (RTX 4070 8GB VRAM): ikinci model yükleme yok.
+`OLLAMA_HOST` env var ile harici instance da kullanılabilir.
 
 ### Layer 3 — Qdrant Docker
 
@@ -101,11 +101,11 @@ make qdrant-up    # localhost:6333
 make qdrant-down  # temizlik
 ```
 
-## Hizli Kullanim
+## Hızlı Kullanım
 
 ```bash
 make sanity      # L0 environment + toolcall sanity check
-make smoke       # tum katmanlar smoke test
+make smoke       # tüm katmanlar smoke test
 make layer1      # L1 sadece (LangGraph + Ollama)
 make layer2      # L2 sadece (LlamaIndex doc_search)
 make layer3      # L3 sadece (Qdrant memory)
@@ -116,40 +116,40 @@ make layer55     # L5.5 RAGAS skeleton contract tests (deneysel)
 python app.py    # Gradio chat UI (http://127.0.0.1:7861)
 ```
 
-## Tasarim Prensipleri
+## Tasarım Prensipleri
 
-- **Lokal-first**: Tum LLM ve embedding cagrilari default olarak lokal
-  (Ollama, fastembed, MiniLM CPU). Web aramasi opt-in.
-- **Katman-zorunlu degil**: L2/L3/L4 olmadan da L1 calisir.
-- **Tek model disiplini**: VRAM kisitlari (8GB) → qwen2.5:7B tek model (~4.5GB).
-- **Deterministik testler**: Her katmanin ayri pytest hedefi var; LLM
-  cagrilari fixture'lara cevrilebilir.
-- **Sessiz varsayilan, konuskan opsiyon**: verbose/debug/json opt-in.
+- **Lokal-first**: Tüm LLM ve embedding çağrıları default olarak lokal
+  (Ollama, fastembed, MiniLM CPU). Web araması opt-in.
+- **Katman-zorunlu değil**: L2/L3/L4 olmadan da L1 çalışır.
+- **Tek model disiplini**: VRAM kısıtları (8GB) → qwen2.5:7B tek model (~4.5GB).
+- **Deterministik testler**: Her katmanın ayrı pytest hedefi var; LLM
+  çağrıları fixture'lara çevrilebilir.
+- **Sessiz varsayılan, konuşkan opsiyon**: verbose/debug/json opt-in.
 
-## Yapi
+## Yapı
 
 ```
-src/arastirma_ussu/   # Paket kodu (per-layer alt modul)
+src/arastirma_ussu/   # Paket kodu (per-layer alt modül)
 tests/                # pytest (smoke + integration + experimental marker)
-scripts/              # toolcall_sanity.py + yardimci script'ler
-data/                 # qdrant_storage/ + ornek dokuman/index dosyalari
-app.py                # Gradio chat UI giris noktasi
-pyproject.toml        # Bagimliliklar + opsiyonel layer extras
+scripts/              # toolcall_sanity.py + yardımcı script'ler
+data/                 # qdrant_storage/ + örnek doküman/index dosyaları
+app.py                # Gradio chat UI giriş noktası
+pyproject.toml        # Bağımlılıklar + opsiyonel layer extras
 Makefile              # sanity / smoke / layer1-5 / lint / qdrant-up
-CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
+CLAUDE.md             # Claude Code için proje rehberi (canonical status)
 ```
 
-## Bilinen Sinirlamalar
+## Bilinen Sınırlamalar
 
-- Model evrimi: `dolphin-mistral:7B` (Turkce zayif) → `qwen2.5:3B`
-  (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite icin upgrade);
-  prompt + guard + retry 3-katmanli savunma var ama %100 degil.
-- Ilk tur guard: LLM tool cagirmadan Final Answer verirse `doc_search` /
-  `memory_search`'e zorlanir.
-- `pyarrow` import sirasinda Windows access violation uyarisi —
+- Model evrimi: `dolphin-mistral:7B` (Türkçe zayıf) → `qwen2.5:3B`
+  (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite için upgrade);
+  prompt + guard + retry 3-katmanlı savunma var ama %100 değil.
+- İlk tur guard: LLM tool çağırmadan Final Answer verirse `doc_search` /
+  `memory_search`'e zorlanır.
+- `pyarrow` import sırasında Windows access violation uyarısı —
   test sonucunu etkilemiyor.
 
-## Yol Haritasi
+## Yol Haritası
 
 - [x] **L0 Bootstrap** — toolcall sanity, manuel ReAct fallback
 - [x] **L1 Basic Agent** — LangGraph + Ollama, ReAct regex parser
@@ -157,7 +157,7 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 - [x] **L3 Smart Memory** — Qdrant 2 koleksiyon, hybrid embed
 - [x] **L4 Multi-Agent** — CrewAI sequential
 - [x] **L5 Quality & Security** — 7 guard + action whitelist
-- [x] **E2E REPL canli test** (2026-05-03)
+- [x] **E2E REPL canlı test** (2026-05-03)
 - [x] **L5.5 RAGAS LLM-as-Judge** (2026-05-14) — skeleton + end-to-end
       wired with `default_ollama_judge()` helper; 9 test (7 contract +
       2 Ollama-judge golden gated behind `experimental + integration`);
