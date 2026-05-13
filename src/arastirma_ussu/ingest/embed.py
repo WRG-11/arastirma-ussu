@@ -27,7 +27,7 @@ def _get_model() -> SentenceTransformer:
 
 def get_embedding_dim() -> int:
     """Return the embedding dimensionality (model-swap-safe)."""
-    return _get_model().get_embedding_dimension()
+    return _get_model().get_sentence_embedding_dimension()
 
 
 def embed_texts(texts: list[str], batch_size: int = 32) -> list[list[float]]:
