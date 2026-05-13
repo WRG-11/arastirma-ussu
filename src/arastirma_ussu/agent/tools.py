@@ -65,7 +65,7 @@ def web_search(query: str) -> str:
 
     Translates Turkish queries to English for better search quality.
     """
-    from duckduckgo_search import DDGS  # lazy — no network in smoke tests
+    from ddgs import DDGS  # lazy — no network in smoke tests; duckduckgo-search renamed to ddgs 2026
 
     # Translate to English for better DuckDuckGo results
     en_query = _translate_query_to_english(query)
