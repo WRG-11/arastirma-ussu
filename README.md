@@ -57,13 +57,13 @@ calismasi minimum gereksinim.
 
 ## E2E Durum (2026-05-03 canli test)
 
-- **111/111 smoke test PASSED**
-- REPL: soru → `doc_search` → Turkce cevap calisiyor
-- RAG: belge indeksle → Qdrant → `doc_search` sorgusu calisiyor
-- Hafiza: `memory_search` onceki Q&A ciftlerini buluyor
+- **111/111 smoke test PASSED**.
+- REPL: soru → `doc_search` → Turkce cevap calisiyor.
+- RAG: belge indeksle → Qdrant → `doc_search` sorgusu calisiyor.
+- Hafiza: `memory_search` onceki Q&A ciftlerini buluyor.
 - Guard: `check_language` Ingilizce drift'i yakaliyor, `_retry_turkish`
-  ceviriye gonderiyor
-- Encoding: `_ensure_utf8_stdio` Windows cp1254 → UTF-8 zorluyor
+  ceviriye gonderiyor.
+- Encoding: `_ensure_utf8_stdio` Windows cp1254 → UTF-8 zorluyor.
 
 ## Kurulum
 
@@ -162,7 +162,7 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
       wired with `default_ollama_judge()` helper; 9 test (7 contract +
       2 Ollama-judge golden gated behind `experimental + integration`);
       legacy `ragas.metrics` path (modern `collections` API blocks Ollama
-      until RAGAS 1.0 brings local-LLM factory)
+      until RAGAS 1.0 brings local-LLM factory).
 
 ## Lisans
 
