@@ -142,8 +142,8 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 ## Bilinen Sinirlamalar
 
 - Model evrimi: `dolphin-mistral:7B` (Turkce zayif) → `qwen2.5:3B`
-  (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite icin upgrade); prompt
-  + guard + retry 3-katmanli savunma var ama %100 degil.
+  (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite icin upgrade);
+  prompt + guard + retry 3-katmanli savunma var ama %100 degil.
 - Ilk tur guard: LLM tool cagirmadan Final Answer verirse `doc_search` /
   `memory_search`'e zorlanir.
 - `pyarrow` import sirasinda Windows access violation uyarisi —
