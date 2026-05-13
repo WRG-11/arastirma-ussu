@@ -19,14 +19,16 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Dil: Kullaniciya Turkce / Kod+degisken Ingilizce
 - Git: `git add .` YASAK — dosya ismiyle stage et
 - Multi-session: branch izolasyonu (session/<kisa-tanim>)
-- VRAM: RTX 4070 8GB. qwen2.5:3B tek model. Ikinci model YUKLEME.
+- VRAM: RTX 4070 8GB. qwen2.5:7B tek model (~4.5GB). Ikinci model YUKLEME.
 - Venv: .venv DAIMA aktif. Global pip'e DOKUNMA.
-- CI yok, pre-commit yok (kisisel proje, agirlik katma)
+- CI VAR (`.github/workflows/ci.yml` — ubuntu+windows × py3.11/3.12 matrix
+  + lint job), coverage gate 70% (R12 audit 2026-05-13 hardened: layer2-5
+  extras install + PYTHONUTF8=1 + fail-fast:false). pre-commit yok.
 
 ## Teknoloji Stack
 - Python 3.12, venv .venv/
 - LangGraph (orkestrasyon) + LangChain (thin adapter, sadece model/tool protocol)
-- Ollama: qwen2.5:3B (tek model, cok dilli, Turkce guclu, hizli)
+- Ollama: qwen2.5:7B (tek model, cok dilli, Turkce guclu; 2026-05-04 3B→7B upgrade)
 - Layer 2: LlamaIndex (veri okuma/indeksleme)
 - Layer 3: Qdrant (vektor DB, ChromaDB yerine)
 - Layer 4: CrewAI (multi-agent, LangGraph tool olarak cagirilir)
@@ -42,6 +44,10 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - [x] Layer 4: Multi-Agent (CrewAI) — tool-less sequential, allow_delegation=False, 17 test
 - [x] Layer 5: Security & Deterministic Quality — 7 guard, action whitelist, 41 test
 - [x] E2E: REPL canlı test (2026-05-03) — RAG, hafıza zinciri, guard pipeline calisiyor
+- [x] Coverage ratchet (2026-05-04) — 70% gate, `4590294`
+- [x] CI workflow (2026-05-05) — GHA ubuntu+windows × py3.11/3.12 + lint, `0d4ef6b`
+- [x] R12 audit hygiene (2026-05-13) — SECURITY/CoC/CONTRIBUTING + ci.yml v6 SHA-pin + full-coverage hardening, `9b8c3f0` + `49c9e4a`
+- [x] R13 README sync (2026-05-13) — 3b→7b drift fix + badges + clone instruction, `38539c1`
 - [ ] Layer 5.5: RAGAS LLM-as-Judge (opsiyonel/deneysel)
 
 ## E2E Test Sonuclari (2026-05-03)
@@ -53,9 +59,10 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Encoding: _ensure_utf8_stdio Windows cp1254→UTF-8 zorluyor
 
 ## Bilinen Sinirlamalar
-- dolphin-mistral:7B Turkce'de zayif — prompt+guard+retry 3 katmanli savunma var ama %100 degil
+- Model evrimi: dolphin-mistral:7B (Turkce zayif) → qwen2.5:3B (2026-05-03) → qwen2.5:7B (2026-05-04, kalite icin); prompt+guard+retry 3 katmanli savunma var ama %100 degil
 - Ilk tur guard: LLM tool cagirmadan Final Answer verirse doc_search/memory_search'e zorlanir
 - pyarrow import sirasinda Windows access violation uyarisi — test sonucunu etkilemiyor
+- CI quota wall (WRG-11 org Actions): 2026-06-01 reset; bu tarihe kadar admin merge / local-verified disiplini
 
 ## Sik Komutlar
 ```bash
