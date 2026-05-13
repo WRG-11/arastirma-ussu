@@ -1,6 +1,6 @@
 # Arastirma Ussu — Makefile
 # Windows + Git Bash only. WSL'e tasinirsa VENV path'i degistir.
-.PHONY: sanity smoke layer0 layer1 layer2 layer3 layer4 layer5 lint clean qdrant-up qdrant-down
+.PHONY: sanity smoke layer0 layer1 layer2 layer3 layer4 layer5 layer55 lint clean qdrant-up qdrant-down
 
 # Ortam
 VENV := .venv/Scripts/python
@@ -29,6 +29,9 @@ layer4:
 
 layer5:
 	$(PYTEST) tests/test_guards.py -m smoke -v --tb=short
+
+layer55:
+	$(PYTEST) tests/test_eval.py -m "not experimental and not integration" -v --tb=short
 
 # ─── Genel ──────────────────────────────────────────────
 smoke:

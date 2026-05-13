@@ -50,7 +50,7 @@ uretmek**.
 | 3 | Smart Memory | Qdrant 2 koleksiyon, hybrid embed, LRU 5k | ✓ (20 test) |
 | 4 | Multi-Agent | CrewAI tool-less sequential, allow_delegation=False | ✓ (17 test) |
 | 5 | Quality & Security | 7 guard + action whitelist | ✓ (41 test) |
-| 5.5 | RAGAS LLM-as-Judge | opsiyonel/deneysel | planned |
+| 5.5 | RAGAS LLM-as-Judge | opsiyonel/deneysel | ✓ skeleton (6 contract test) |
 
 Her katman `pip install -e ".[layerN]"` extras'i ile aktive edilir; L1
 calismasi minimum gereksinim.
@@ -111,6 +111,7 @@ make layer2      # L2 sadece (LlamaIndex doc_search)
 make layer3      # L3 sadece (Qdrant memory)
 make layer4      # L4 sadece (CrewAI multi-agent)
 make layer5      # L5 sadece (guard pipeline)
+make layer55     # L5.5 RAGAS skeleton contract tests (deneysel)
 
 python app.py    # Gradio chat UI (http://127.0.0.1:7861)
 ```
@@ -157,7 +158,9 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 - [x] **L4 Multi-Agent** — CrewAI sequential
 - [x] **L5 Quality & Security** — 7 guard + action whitelist
 - [x] **E2E REPL canli test** (2026-05-03)
-- [ ] **L5.5 RAGAS LLM-as-Judge** — opsiyonel, deneysel
+- [x] **L5.5 RAGAS LLM-as-Judge skeleton** (2026-05-14) — contract + 6 test;
+      real RAGAS execution gated behind `experimental + integration` markers,
+      needs `pip install -e ".[layer55]"` + Ollama judge LLM
 
 ## Lisans
 
