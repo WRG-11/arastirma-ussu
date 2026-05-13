@@ -11,7 +11,7 @@
 `arastirma-ussu`, kucuk olcekli arastirmacilarin gunluk soru-cevap, dokuman
 tarama ve uzun donemli not-tutma akislarini tek bir yerden yonetebilmesi
 icin tasarlanmis acik kaynakli bir AI asistanidir. Tasarim hedefi: **buyuk
-SaaS RAG yiginlarinin 3-katman guard + semantik cache + golden eval
+SaaS RAG yiginlarinin 3-katmanli guard + semantik cache + golden eval
 pattern'lerini solo bir kullanici icin tek-makine olceginde yeniden
 uretmek**.
 
@@ -20,7 +20,7 @@ uretmek**.
 | Problem | Cozumumuz |
 |--------|-----------|
 | Ticari RAG araclari pahali + veri-onleyici | Tum LLM cagrilari Ollama uzerinden lokal |
-| Tek-katman LLM yanitlari guvensiz | 3-katman guard (input + retrieval + output) |
+| Tek-katmanli LLM yanitlari guvensiz | 3-katmanli guard (input + retrieval + output) |
 | Cevaplar zamanla siniflanamiyor | Qdrant + persistent memory layer |
 | Coklu kaynak takibi zor | LlamaIndex doc-store + DuckDuckGo web cache |
 
@@ -122,7 +122,7 @@ python app.py    # Gradio chat UI (http://127.0.0.1:7861)
   (Ollama, fastembed, MiniLM CPU). Web aramasi opt-in.
 - **Katman-zorunlu degil**: L2/L3/L4 olmadan da L1 calisir.
 - **Tek model disiplini**: VRAM kisitlari (8GB) → qwen2.5:7B tek model (~4.5GB).
-- **Determinik testler**: Her katmanin ayri pytest hedefi var; LLM
+- **Deterministik testler**: Her katmanin ayri pytest hedefi var; LLM
   cagrilari fixture'lara cevrilebilir.
 - **Sessiz varsayilan, konuskan opsiyon**: verbose/debug/json opt-in.
 
@@ -143,7 +143,7 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 
 - Model evrimi: `dolphin-mistral:7B` (Turkce zayif) → `qwen2.5:3B`
   (2026-05-03) → `qwen2.5:7B` (2026-05-04, kalite icin upgrade); prompt
-  + guard + retry 3 katmanli savunma var ama %100 degil.
+  + guard + retry 3-katmanli savunma var ama %100 degil.
 - Ilk tur guard: LLM tool cagirmadan Final Answer verirse `doc_search` /
   `memory_search`'e zorlanir.
 - `pyarrow` import sirasinda Windows access violation uyarisi —
