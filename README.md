@@ -50,7 +50,7 @@ uretmek**.
 | 3 | Smart Memory | Qdrant 2 koleksiyon, hybrid embed, LRU 5k | ✓ (20 test) |
 | 4 | Multi-Agent | CrewAI tool-less sequential, allow_delegation=False | ✓ (17 test) |
 | 5 | Quality & Security | 7 guard + action whitelist | ✓ (41 test) |
-| 5.5 | RAGAS LLM-as-Judge | opsiyonel/deneysel | ✓ skeleton (6 contract test) |
+| 5.5 | RAGAS LLM-as-Judge | opsiyonel/deneysel | ✓ end-to-end (7 contract + 2 Ollama-judge golden) |
 
 Her katman `pip install -e ".[layerN]"` extras'i ile aktive edilir; L1
 calismasi minimum gereksinim.
@@ -158,9 +158,11 @@ CLAUDE.md             # Claude Code icin proje rehberi (canonical status)
 - [x] **L4 Multi-Agent** — CrewAI sequential
 - [x] **L5 Quality & Security** — 7 guard + action whitelist
 - [x] **E2E REPL canli test** (2026-05-03)
-- [x] **L5.5 RAGAS LLM-as-Judge skeleton** (2026-05-14) — contract + 6 test;
-      real RAGAS execution gated behind `experimental + integration` markers,
-      needs `pip install -e ".[layer55]"` + Ollama judge LLM
+- [x] **L5.5 RAGAS LLM-as-Judge** (2026-05-14) — skeleton + end-to-end
+      wired with `default_ollama_judge()` helper; 9 test (7 contract +
+      2 Ollama-judge golden gated behind `experimental + integration`);
+      legacy `ragas.metrics` path (modern `collections` API blocks Ollama
+      until RAGAS 1.0 brings local-LLM factory)
 
 ## Lisans
 

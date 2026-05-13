@@ -11,6 +11,6 @@ marker and skipped by default.
 from __future__ import annotations
 
 from .types import JudgeResult
-from .ragas_judge import evaluate_answer
+from .ragas_judge import default_ollama_judge, evaluate_answer
 
-__all__ = ["JudgeResult", "evaluate_answer"]
+__all__ = ["JudgeResult", "default_ollama_judge", "evaluate_answer"]

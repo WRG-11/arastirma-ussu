@@ -48,8 +48,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - [x] CI workflow (2026-05-05) — GHA ubuntu+windows × py3.11/3.12 + lint, `0d4ef6b`
 - [x] R12 audit hygiene (2026-05-13) — SECURITY/CoC/CONTRIBUTING + ci.yml v6 SHA-pin + full-coverage hardening, `9b8c3f0` + `49c9e4a`
 - [x] R13 README sync (2026-05-13) — 3b→7b drift fix + badges + clone instruction, `38539c1`
-- [x] Layer 5.5 skeleton (2026-05-14) — `src/arastirma_ussu/eval/` (types + ragas_judge wrapper); 6 contract tests + 2 experimental (gated on ragas + Ollama); `make layer55`
-- [ ] Layer 5.5 real RAGAS wire-up — needs `[layer55]` extras + Ollama judge LLM/embeddings config
+- [x] Layer 5.5 skeleton + real wire-up (2026-05-14) — `src/arastirma_ussu/eval/` (types + ragas_judge wrapper + `default_ollama_judge()` helper); 9 test total (7 contract + 2 Ollama-judge golden gated behind `experimental + integration`); RAGAS 0.4.3 legacy `ragas.metrics` path (modern `collections` API needs InstructorLLM which lacks Ollama support); `make layer55`
 
 ## E2E Test Sonuclari (2026-05-03)
 - 111/111 smoke test PASSED

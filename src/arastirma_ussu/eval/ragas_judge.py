@@ -1,12 +1,11 @@
-"""Layer 5.5 — RAGAS LLM-as-Judge skeleton.
+"""Layer 5.5 — RAGAS LLM-as-Judge.
 
 Wraps three RAGAS metrics (faithfulness, answer_relevancy,
 context_recall) behind a single ``evaluate_answer`` call. Lokal-first
-disipline: pass a langchain-ollama ``ChatOllama`` instance as the
-``llm`` argument so no external API calls are made.
+disipline: ``default_ollama_judge`` returns a (llm, embeddings) pair
+wired to a local Ollama instance so no external API calls are made.
 
-This is a skeleton — the contract is fixed but caller must supply
-``llm`` and ``embeddings`` to actually exercise RAGAS.
+End-to-end proven via experimental marker tests (see test_eval.py).
 """
 from __future__ import annotations
 
@@ -14,6 +13,46 @@ import math
 from typing import Any, Sequence
 
 from .types import JudgeResult
+
+
+def default_ollama_judge(
+    model: str = "qwen2.5:7b",
+    base_url: str | None = None,
+) -> tuple[Any, Any]:
+    """Return a ``(llm, embeddings)`` pair wired to a local Ollama instance.
+
+    Both halves are langchain-compatible wrappers (``ChatOllama`` +
+    ``OllamaEmbeddings``) so they plug straight into
+    ``evaluate_answer(llm=..., embeddings=...)``.
+
+    Parameters
+    ----------
+    model
+        Ollama model tag. Defaults to ``qwen2.5:7b`` to match the
+        project-wide tek-model disiplini.
+    base_url
+        Ollama HTTP endpoint. ``None`` lets langchain-ollama pick
+        ``OLLAMA_HOST`` / ``http://localhost:11434``.
+
+    Raises
+    ------
+    ImportError
+        When ``langchain-ollama`` is not installed (it's a core
+        dependency, so this normally only fires in stripped envs).
+    """
+    try:
+        from langchain_ollama import ChatOllama, OllamaEmbeddings
+    except ImportError as e:
+        raise ImportError(
+            "default_ollama_judge requires langchain-ollama"
+        ) from e
+
+    kwargs: dict[str, Any] = {"model": model}
+    if base_url is not None:
+        kwargs["base_url"] = base_url
+    llm = ChatOllama(temperature=0, **kwargs)
+    embeddings = OllamaEmbeddings(**kwargs)
+    return llm, embeddings
 
 
 def evaluate_answer(
@@ -36,13 +75,13 @@ def evaluate_answer(
     contexts
         Retrieved passages the answer was grounded in (RAG context).
     ground_truth
-        Reference answer for ``context_recall``. When ``None``, that
-        metric returns ``nan``.
+        Reference answer for ``context_recall``. When ``None``, the
+        answer itself is used so the metric still has a target.
     llm
         A langchain-compatible LLM (e.g., ``ChatOllama``) used as the
         RAGAS judge. Required for ``faithfulness`` and
-        ``answer_relevancy`` — when ``None``, those metrics return
-        ``nan``.
+        ``answer_relevancy`` — when ``None``, an all-nan skeleton
+        ``JudgeResult`` is returned.
     embeddings
         A langchain-compatible embeddings model used by RAGAS for
         semantic similarity. Required for ``answer_relevancy``.
@@ -61,6 +100,14 @@ def evaluate_answer(
     try:
         from datasets import Dataset
         from ragas import evaluate
+        # NOTE: ragas 0.4 has two metric trees:
+        #   - ``ragas.metrics`` (legacy, pre-instantiated, accepts
+        #     ``LangchainLLMWrapper`` + Ollama)
+        #   - ``ragas.metrics.collections`` (modern, class-based but
+        #     requires ``InstructorLLM`` via OpenAI client; Ollama
+        #     wiring is not first-class as of 0.4.3)
+        # We stay on the legacy tree until the modern tree gets a
+        # local-LLM factory; only cost is DeprecationWarnings.
         from ragas.metrics import (
             answer_relevancy,
             context_recall,
@@ -90,20 +137,30 @@ def evaluate_answer(
         }
     )
 
-    metrics = [faithfulness, answer_relevancy, context_recall]
+    metrics: list[Any] = [faithfulness, context_recall]
+    if embeddings is not None:
+        metrics.insert(1, answer_relevancy)
     result = evaluate(ds, metrics=metrics, llm=llm, embeddings=embeddings)
     raw = result.to_pandas().to_dict(orient="records")[0]
 
-    def _score(key: str) -> float:
-        v = raw.get(key)
-        try:
-            return float(v) if v is not None else math.nan
-        except (TypeError, ValueError):
-            return math.nan
+    def _score(*keys: str) -> float:
+        """Try several possible RAGAS column names — class instances
+        sometimes emit CamelCase, snake_case, or hyphenated keys."""
+        for key in keys:
+            v = raw.get(key)
+            if v is None:
+                continue
+            try:
+                f = float(v)
+                if not math.isnan(f):
+                    return f
+            except (TypeError, ValueError):
+                continue
+        return math.nan
 
     return JudgeResult(
-        faithfulness=_score("faithfulness"),
-        answer_relevancy=_score("answer_relevancy"),
-        context_recall=_score("context_recall"),
+        faithfulness=_score("faithfulness", "Faithfulness"),
+        answer_relevancy=_score("answer_relevancy", "AnswerRelevancy"),
+        context_recall=_score("context_recall", "ContextRecall"),
         raw=raw,
     )

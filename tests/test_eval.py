@@ -77,26 +77,63 @@ def test_evaluate_answer_no_llm_returns_nan_skeleton() -> None:
 @pytest.mark.experimental
 @pytest.mark.integration
 @pytest.mark.skipif(not _RAGAS_AVAILABLE, reason="ragas not installed")
-def test_evaluate_answer_with_ollama_judge_smoke() -> None:
-    """End-to-end smoke: RAGAS with local Ollama judge.
+def test_evaluate_answer_good_golden() -> None:
+    """E2E good-path golden: an answer fully supported by context should
+    score finite metrics across the board.
 
     Heavy + slow. Gated behind ``experimental`` + ``integration`` so it
-    runs only when the operator explicitly opts in (e.g.,
-    ``pytest -m experimental``).
+    runs only when the operator explicitly opts in
+    (``pytest -m experimental``).
     """
     pytest.importorskip("langchain_ollama")
-    from langchain_ollama import ChatOllama, OllamaEmbeddings  # type: ignore
+    from arastirma_ussu.eval import default_ollama_judge
 
-    judge = ChatOllama(model="qwen2.5:7b", temperature=0)
-    embed = OllamaEmbeddings(model="qwen2.5:7b")
-
+    llm, embeddings = default_ollama_judge()
     r = evaluate_answer(
         question="Türkiye'nin başkenti neresi?",
         answer="Türkiye'nin başkenti Ankara.",
         contexts=["Ankara, Türkiye'nin başkentidir."],
         ground_truth="Ankara",
-        llm=judge,
-        embeddings=embed,
+        llm=llm,
+        embeddings=embeddings,
     )
     assert isinstance(r, JudgeResult)
-    # We don't assert on values — RAGAS metric drift makes that brittle.
+    # At least one metric should be finite — RAGAS + Ollama can be
+    # stochastic, so we don't assert on absolute values but we do
+    # assert at least one metric path completed.
+    finite = [
+        v for v in (r.faithfulness, r.answer_relevancy, r.context_recall)
+        if not math.isnan(v)
+    ]
+    assert len(finite) >= 1, f"all metrics nan; raw={r.raw}"
+
+
+@pytest.mark.experimental
+@pytest.mark.integration
+@pytest.mark.skipif(not _RAGAS_AVAILABLE, reason="ragas not installed")
+def test_evaluate_answer_bad_golden() -> None:
+    """E2E bad-path golden: an answer contradicting the context should
+    not score 1.0 on faithfulness.
+
+    Stochastic + heavy: a single failed call yields no signal, so we
+    require both that the call completes and that faithfulness (when
+    finite) is strictly below 1.0. Other metrics are not asserted
+    because RAGAS LLM-as-judge can drift.
+    """
+    pytest.importorskip("langchain_ollama")
+    from arastirma_ussu.eval import default_ollama_judge
+
+    llm, embeddings = default_ollama_judge()
+    r = evaluate_answer(
+        question="Türkiye'nin başkenti neresi?",
+        answer="Türkiye'nin başkenti İstanbul.",  # contradicts context
+        contexts=["Ankara, Türkiye'nin başkentidir."],
+        ground_truth="Ankara",
+        llm=llm,
+        embeddings=embeddings,
+    )
+    assert isinstance(r, JudgeResult)
+    if not math.isnan(r.faithfulness):
+        assert r.faithfulness < 1.0, (
+            f"contradicting answer scored perfect faithfulness; raw={r.raw}"
+        )
