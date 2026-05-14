@@ -74,6 +74,57 @@ def test_evaluate_answer_no_llm_returns_nan_skeleton() -> None:
     assert r.raw.get("reason") == "no llm provided"
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("langchain_ollama") is None,
+    reason="langchain-ollama not installed",
+)
+def test_default_ollama_judge_default_model() -> None:
+    """Helper returns a (ChatOllama, OllamaEmbeddings) pair wired to
+    qwen2.5:7b (tek-model default) without invoking Ollama."""
+    from langchain_ollama import ChatOllama, OllamaEmbeddings
+
+    from arastirma_ussu.eval import default_ollama_judge
+
+    llm, embeddings = default_ollama_judge()
+    assert isinstance(llm, ChatOllama)
+    assert isinstance(embeddings, OllamaEmbeddings)
+    assert llm.model == "qwen2.5:7b"
+    assert embeddings.model == "qwen2.5:7b"
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("langchain_ollama") is None,
+    reason="langchain-ollama not installed",
+)
+def test_default_ollama_judge_custom_model_and_base_url() -> None:
+    """Custom model + base_url propagate to both wrappers."""
+    from arastirma_ussu.eval import default_ollama_judge
+
+    llm, embeddings = default_ollama_judge(
+        model="llama3.2:3b", base_url="http://remote:11434"
+    )
+    assert llm.model == "llama3.2:3b"
+    assert embeddings.model == "llama3.2:3b"
+
+
+def test_default_ollama_judge_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Surface a clear ImportError when langchain-ollama is missing."""
+    import builtins
+
+    from arastirma_ussu.eval import default_ollama_judge
+
+    real_import = builtins.__import__
+
+    def fake_import(name: str, *args, **kwargs):
+        if name == "langchain_ollama":
+            raise ImportError("mocked: langchain_ollama missing")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(ImportError, match="langchain-ollama"):
+        default_ollama_judge()
+
+
 @pytest.mark.experimental
 @pytest.mark.integration
 @pytest.mark.skipif(not _RAGAS_AVAILABLE, reason="ragas not installed")
