@@ -17,6 +17,18 @@ logger = logging.getLogger(__name__)
 _cfg = QdrantConfig()
 MAX_POINTS = _cfg.max_conversation_points
 
+
+class MemoryStoreError(Exception):
+    """Raised when a Qdrant-backed memory operation fails.
+
+    R89-21b AU-L2-08: domain-specific exception so callers can catch
+    memory-layer failures without also catching unrelated errors AND
+    without exposing the underlying Qdrant exception's PII / stack
+    payload to the LLM. The original exception is logged server-side
+    via ``logger.warning(...)`` but never included in this exception's
+    message.
+    """
+
 # Module-level singleton
 _memory: ConversationMemory | None = None
 
@@ -81,20 +93,27 @@ class ConversationMemory:
         vector = embed_query(embed_text)
 
         point_id = str(uuid.uuid4())
-        self._client.upsert(
-            collection_name=self._collection,
-            points=[
-                PointStruct(
-                    id=point_id,
-                    vector=vector,
-                    payload={
-                        "question": question,
-                        "answer": answer,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-            ],
-        )
+        try:
+            self._client.upsert(
+                collection_name=self._collection,
+                points=[
+                    PointStruct(
+                        id=point_id,
+                        vector=vector,
+                        payload={
+                            "question": question,
+                            "answer": answer,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
+                ],
+            )
+        except Exception as exc:
+            # R89-21b AU-L2-08: Qdrant upsert exception was uncaught,
+            # leaking raw library detail to caller. Wrap in domain
+            # exception with no PII; log original server-side.
+            logger.warning("memory upsert failed: %s", exc)
+            raise MemoryStoreError("memory save failed") from exc
         return point_id
 
     def search(
@@ -107,13 +126,19 @@ class ConversationMemory:
         from arastirma_ussu.ingest.embed import embed_query
 
         vector = embed_query(query)
-        results = self._client.query_points(
-            collection_name=self._collection,
-            query=vector,
-            limit=top_k,
-            score_threshold=score_threshold,
-            with_payload=True,
-        )
+        try:
+            results = self._client.query_points(
+                collection_name=self._collection,
+                query=vector,
+                limit=top_k,
+                score_threshold=score_threshold,
+                with_payload=True,
+            )
+        except Exception as exc:
+            # R89-21b AU-L2-08: Qdrant query exception was uncaught.
+            # Sister to AU-L2-07 ingest/index.py query_points. Wrap.
+            logger.warning("memory query_points failed: %s", exc)
+            raise MemoryStoreError("memory search failed") from exc
 
         out: list[dict] = []
         for point in results.points:
@@ -143,12 +168,24 @@ class ConversationMemory:
 
     def count(self) -> int:
         """Return number of stored conversations."""
-        return self._client.count(collection_name=self._collection).count
+        try:
+            return self._client.count(collection_name=self._collection).count
+        except Exception as exc:
+            # R89-21b AU-L2-08: called from save() LRU check; raw
+            # exception would surface to the user-facing save path.
+            logger.warning("memory count failed: %s", exc)
+            raise MemoryStoreError("memory count failed") from exc
 
     def clear(self) -> None:
         """Delete and recreate the collection."""
-        self._client.delete_collection(self._collection)
-        self._ensure_collection()
+        try:
+            self._client.delete_collection(self._collection)
+            self._ensure_collection()
+        except Exception as exc:
+            # R89-21b AU-L2-08: explicit user action; surface as
+            # domain error without raw Qdrant detail.
+            logger.warning("memory clear failed: %s", exc)
+            raise MemoryStoreError("memory clear failed") from exc
 
     # ------------------------------------------------------------------
     # Internal
@@ -156,17 +193,24 @@ class ConversationMemory:
 
     def _evict_oldest(self) -> None:
         """Delete the oldest point by timestamp (LRU eviction)."""
-        # Scroll to find the point with the earliest timestamp
-        points, _ = self._client.scroll(
-            collection_name=self._collection,
-            limit=1,
-            order_by="timestamp",
-        )
-        if points:
-            self._client.delete(
+        # R89-21b AU-L2-08: scroll + delete each had no exception handling.
+        # Called from save() -- failure here was crashing save()
+        # opaquely. Wrap both calls under one MemoryStoreError mapping.
+        try:
+            # Scroll to find the point with the earliest timestamp
+            points, _ = self._client.scroll(
                 collection_name=self._collection,
-                points_selector=[points[0].id],
+                limit=1,
+                order_by="timestamp",
             )
+            if points:
+                self._client.delete(
+                    collection_name=self._collection,
+                    points_selector=[points[0].id],
+                )
+        except Exception as exc:
+            logger.warning("memory _evict_oldest failed: %s", exc)
+            raise MemoryStoreError("memory LRU eviction failed") from exc
 
 
 def get_memory(client: QdrantClient | None = None) -> ConversationMemory:
