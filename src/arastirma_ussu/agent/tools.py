@@ -91,8 +91,21 @@ def web_search(query: str) -> str:
             href = r.get("href", "")
             lines.append(f"{i}. {title}\n   {body}\n   URL: {href}")
         return _truncate("\n\n".join(lines))
-    except Exception as e:
-        return f"Web arama hatasi: {e}"
+    except Exception as exc:
+        # R89-21b AU-L2-05: previously returned the raw exception text
+        # via f-string interpolation. That string is fed back to the LLM
+        # agent (and downstream user).
+        # Two risks:
+        #   1. PII / path / env-var leak through exception repr (stack-trace
+        #      style payloads from underlying urllib / requests / proxy libs)
+        #   2. Prompt-injection by an attacker who can shape the exception
+        #      message (e.g., crafted URL → library raises with adversarial
+        #      string → string lands inside the agent's observation context).
+        # Fix: stable sentinel string. Log the actual exception server-side
+        # for diagnostics, but never round-trip it through the LLM context.
+        import logging as _logging
+        _logging.warning("web_search failed: %s", exc)
+        return "Web arama yapilamadi."
 
 
 def summarize(text: str) -> str:
