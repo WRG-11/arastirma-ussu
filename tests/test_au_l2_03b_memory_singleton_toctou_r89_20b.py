@@ -14,15 +14,16 @@ from __future__ import annotations
 import sys
 import threading
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 
-def _install_qdrant_stub() -> None:
-    """Stub qdrant_client so ConversationMemory.__init__ doesn't open a real conn."""
+@pytest.fixture
+def qdrant_stub(monkeypatch):
+    """Stub qdrant_client; monkeypatch auto-cleans sys.modules."""
     stub_qc = types.ModuleType("qdrant_client")
     stub_qc.QdrantClient = MagicMock()  # type: ignore[attr-defined]
-    sys.modules["qdrant_client"] = stub_qc
-    stub_models = types.ModuleType("qdrant_client.models")
 
     class _Distance:
         COSINE = "cosine"
@@ -34,24 +35,25 @@ def _install_qdrant_stub() -> None:
         def __init__(self, *a, **kw) -> None:
             pass
 
+    stub_models = types.ModuleType("qdrant_client.models")
     stub_models.Distance = _Distance  # type: ignore[attr-defined]
     stub_models.PayloadSchemaType = _PayloadSchemaType  # type: ignore[attr-defined]
     stub_models.VectorParams = _VectorParams  # type: ignore[attr-defined]
-    sys.modules["qdrant_client.models"] = stub_models
+
+    monkeypatch.setitem(sys.modules, "qdrant_client", stub_qc)
+    monkeypatch.setitem(sys.modules, "qdrant_client.models", stub_models)
+    monkeypatch.delitem(sys.modules, "arastirma_ussu.memory.store", raising=False)
 
 
-def test_au_l2_03b_concurrent_get_memory_returns_same_instance() -> None:
-    _install_qdrant_stub()
-
-    if "arastirma_ussu.memory.store" in sys.modules:
-        del sys.modules["arastirma_ussu.memory.store"]
+def test_au_l2_03b_concurrent_get_memory_returns_same_instance(
+    qdrant_stub, monkeypatch
+) -> None:
     from arastirma_ussu.memory import store as mem
 
     mem._memory = None  # type: ignore[attr-defined]
 
     instances: list[object] = []
     instantiation_count = [0]
-    real_init = mem.ConversationMemory.__init__
 
     def _counting_init(self, *args, **kwargs):
         instantiation_count[0] += 1
@@ -59,18 +61,19 @@ def test_au_l2_03b_concurrent_get_memory_returns_same_instance() -> None:
         self._client = MagicMock()
         self._collection = "test"
 
-    with patch.object(mem.ConversationMemory, "__init__", _counting_init):
-        barrier = threading.Barrier(16)
+    monkeypatch.setattr(mem.ConversationMemory, "__init__", _counting_init)
 
-        def _race() -> None:
-            barrier.wait()
-            instances.append(mem.get_memory(client=MagicMock()))
+    barrier = threading.Barrier(16)
 
-        threads = [threading.Thread(target=_race) for _ in range(16)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+    def _race() -> None:
+        barrier.wait()
+        instances.append(mem.get_memory(client=MagicMock()))
+
+    threads = [threading.Thread(target=_race) for _ in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
     assert len(instances) == 16
     first = instances[0]

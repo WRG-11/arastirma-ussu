@@ -14,25 +14,25 @@ import threading
 import types
 from unittest.mock import MagicMock
 
+import pytest
 
-def _install_st_stub() -> MagicMock:
-    """Stub sentence_transformers — factory counts instantiations."""
+
+@pytest.fixture
+def st_stub(monkeypatch):
+    """Stub sentence_transformers; monkeypatch auto-cleans sys.modules."""
     factory = MagicMock(side_effect=lambda *a, **kw: object())
     stub = types.ModuleType("sentence_transformers")
     stub.SentenceTransformer = factory  # type: ignore[attr-defined]
-    sys.modules["sentence_transformers"] = stub
+    monkeypatch.setitem(sys.modules, "sentence_transformers", stub)
+    monkeypatch.delitem(sys.modules, "arastirma_ussu.ingest.embed", raising=False)
     return factory
 
 
-def test_au_l2_03a_concurrent_get_model_returns_same_instance() -> None:
-    factory = _install_st_stub()
-
-    if "arastirma_ussu.ingest.embed" in sys.modules:
-        del sys.modules["arastirma_ussu.ingest.embed"]
+def test_au_l2_03a_concurrent_get_model_returns_same_instance(st_stub) -> None:
     from arastirma_ussu.ingest import embed as e
 
     e._model = None  # type: ignore[attr-defined]
-    factory.reset_mock()
+    st_stub.reset_mock()
 
     instances: list[object] = []
     barrier = threading.Barrier(16)
@@ -53,8 +53,8 @@ def test_au_l2_03a_concurrent_get_model_returns_same_instance() -> None:
         "AU-L2-03a: TOCTOU regression — concurrent _get_model() returned "
         "multiple distinct SentenceTransformer instances"
     )
-    assert factory.call_count == 1, (
-        f"AU-L2-03a: SentenceTransformer(...) instantiated {factory.call_count}x "
+    assert st_stub.call_count == 1, (
+        f"AU-L2-03a: SentenceTransformer(...) instantiated {st_stub.call_count}x "
         "under concurrent race — expected exactly 1 (DCL failed)"
     )
 

@@ -17,34 +17,28 @@ import threading
 import types
 from unittest.mock import MagicMock
 
+import pytest
 
-def _install_qdrant_stub() -> tuple[types.ModuleType, MagicMock]:
-    """Stub the qdrant_client module so tests don't need a real Qdrant.
 
-    Returns (stub_module, qclient_factory_mock). The factory counts
-    instantiations — we assert it was called exactly once across N
-    concurrent _get_client() calls.
-    """
+@pytest.fixture
+def qdrant_stub(monkeypatch):
+    """Stub qdrant_client; monkeypatch auto-cleans sys.modules after test."""
     factory = MagicMock(side_effect=lambda *a, **kw: object())
     stub_qc = types.ModuleType("qdrant_client")
     stub_qc.QdrantClient = factory  # type: ignore[attr-defined]
-    sys.modules["qdrant_client"] = stub_qc
-    # Stub qdrant_client.models (used elsewhere; safe to be empty here)
     stub_models = types.ModuleType("qdrant_client.models")
-    sys.modules["qdrant_client.models"] = stub_models
-    return stub_qc, factory
+    monkeypatch.setitem(sys.modules, "qdrant_client", stub_qc)
+    monkeypatch.setitem(sys.modules, "qdrant_client.models", stub_models)
+    # Also evict cached arastirma_ussu.ingest.index so the next import picks
+    # up the stub at the lazy `from qdrant_client import QdrantClient as _QC`.
+    monkeypatch.delitem(sys.modules, "arastirma_ussu.ingest.index", raising=False)
+    return factory
 
 
-def test_au_l2_01_concurrent_get_client_returns_same_instance() -> None:
+def test_au_l2_01_concurrent_get_client_returns_same_instance(qdrant_stub) -> None:
     """Concurrent _get_client() callers must all receive the SAME instance."""
-    _install_qdrant_stub()
-
-    # Fresh import of index module (so _client starts at None)
-    if "arastirma_ussu.ingest.index" in sys.modules:
-        del sys.modules["arastirma_ussu.ingest.index"]
     from arastirma_ussu.ingest import index as idx
 
-    # Reset module state defensively (in case prior tests primed it)
     idx._client = None  # type: ignore[attr-defined]
 
     instances: list[object] = []
@@ -68,17 +62,13 @@ def test_au_l2_01_concurrent_get_client_returns_same_instance() -> None:
     )
 
 
-def test_au_l2_01_qdrant_client_constructed_at_most_once() -> None:
+def test_au_l2_01_qdrant_client_constructed_at_most_once(qdrant_stub) -> None:
     """The underlying QdrantClient(...) constructor must be called ONCE
     across N concurrent first-time _get_client() calls."""
-    _, factory = _install_qdrant_stub()
-
-    if "arastirma_ussu.ingest.index" in sys.modules:
-        del sys.modules["arastirma_ussu.ingest.index"]
     from arastirma_ussu.ingest import index as idx
 
     idx._client = None  # type: ignore[attr-defined]
-    factory.reset_mock()
+    qdrant_stub.reset_mock()
 
     barrier = threading.Barrier(16)
 
@@ -92,8 +82,8 @@ def test_au_l2_01_qdrant_client_constructed_at_most_once() -> None:
     for t in threads:
         t.join()
 
-    assert factory.call_count == 1, (
-        f"AU-L2-01: QdrantClient(...) instantiated {factory.call_count}x "
+    assert qdrant_stub.call_count == 1, (
+        f"AU-L2-01: QdrantClient(...) instantiated {qdrant_stub.call_count}x "
         "under concurrent race — expected exactly 1 (double-checked lock failed)"
     )
 
