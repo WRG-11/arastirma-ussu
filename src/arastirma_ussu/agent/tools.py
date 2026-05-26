@@ -49,8 +49,17 @@ def _translate_query_to_english(query: str) -> str:
             model=cfg.model, base_url=cfg.base_url,
             temperature=0.1, num_predict=64, num_ctx=2048,
         )
+        # R89-19b AU-L2-10: wrap raw user query in delimiters to break
+        # prompt injection (sister to AU-L2-09 in app.py). User query
+        # was concatenated directly into translation instruction.
         resp = llm.invoke([HMsg(
-            content=f"Translate to English. Output ONLY the translation:\n{query}"
+            content=(
+                "Translate the text inside <USER_INPUT> tags to English.\n"
+                "Output ONLY the English translation, not the tags.\n"
+                "<USER_INPUT>\n"
+                f"{query}\n"
+                "</USER_INPUT>"
+            )
         )])
         translated = resp.content.strip().split("\n")[0].strip()
         if translated and len(translated) > 3:
