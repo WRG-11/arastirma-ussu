@@ -108,13 +108,21 @@ def _apply_guards(result: dict, query: str) -> str:
 
 
 def _save_memory(query: str, answer: str) -> None:
-    """Save Q&A to conversation memory if answer is valid."""
+    """Save Q&A to conversation memory if answer is valid.
+
+    R89-21b AU-L2-06: memory save failure was silently swallowed via
+    bare ``except Exception: pass``. Memory is non-critical (Q&A loss
+    does not block the user-visible answer), so we DO NOT re-raise —
+    that distinguishes this from the AU-L2-02 guard pipeline which
+    must fail-secure. But the silent swallow makes degraded memory
+    invisible to operators. Fix: log + continue.
+    """
     if answer and answer != FALLBACK_ANSWER:
         try:
             from arastirma_ussu.memory.store import get_memory
             get_memory().save(question=query, answer=answer)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.warning("memory save failed (Q&A discarded): %s", exc)
 
 
 # ---------------------------------------------------------------------------

@@ -445,5 +445,11 @@ def main() -> None:
                 from arastirma_ussu.memory.store import get_memory
 
                 get_memory().save(question=query, answer=result["final_answer"])
-            except Exception:
-                pass  # memory save failure must not break the REPL
+            except Exception as exc:
+                # R89-21b AU-L2-06: was 'except Exception: pass' — silent
+                # data loss made degraded memory invisible. Memory is
+                # non-critical (REPL continues regardless), so log + continue
+                # rather than re-raise. Distinguishes from guard pipeline
+                # (AU-L2-02) which fails secure.
+                import logging as _logging
+                _logging.warning("memory save failed (Q&A discarded): %s", exc)
