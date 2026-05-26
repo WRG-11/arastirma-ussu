@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import sys
@@ -95,8 +96,13 @@ def _apply_guards(result: dict, query: str) -> str:
                 )
                 if lang_warn:
                     answer = _retry_turkish(answer)
-        except Exception:
-            pass
+        except Exception as exc:
+            # R89-19b AU-L2-02: was `except Exception: pass` — silently
+            # swallowed guard failures (security bypass class). Now
+            # log + re-raise (fail-secure). Caller is responsible for
+            # mapping to user-facing FALLBACK_ANSWER if desired.
+            logging.warning("guard pipeline failed: %s", exc)
+            raise
 
     return answer
 

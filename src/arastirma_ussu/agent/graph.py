@@ -426,9 +426,16 @@ def main() -> None:
                             if r.severity == Severity.WARN:
                                 print(f"  [GUARD WARN] {r.guard_name}: {r.message}")
             except ImportError:
-                pass  # Layer 5 not installed
-            except Exception:
-                pass  # guard failure must not break the REPL
+                pass  # Layer 5 not installed (graceful degradation)
+            except Exception as exc:
+                # R89-19b AU-L2-02: was `except Exception: pass` —
+                # silently swallowed guard failures (security bypass).
+                # Now log + re-raise (fail-secure). Outer REPL loop
+                # catches and continues; user sees the error instead
+                # of an unguarded answer.
+                import logging as _logging
+                _logging.warning("guard pipeline failed: %s", exc)
+                raise
 
         print(f"\nYanit: {answer}\n")
 
