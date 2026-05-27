@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,8 +19,8 @@ logger = logging.getLogger(__name__)
 _icfg = IngestConfig()
 _qcfg = QdrantConfig()
 
-# Module-level state
-_client: QdrantClient | None = None
+# Module-level state (collection-ready flag is separate; the client itself is
+# cached via functools.lru_cache on ``_get_client`` — see R89-65b note below).
 _collection_ready: bool = False
 
 
@@ -27,14 +28,16 @@ _collection_ready: bool = False
 # Qdrant client
 # ---------------------------------------------------------------------------
 
+# R89-65b AU-L2-01 re-do: TOCTOU-safe lazy singleton via functools.lru_cache.
+# Sister to embed.py ``_get_model`` (see that module for the full rationale).
+# CPython GIL atomicity covers the race; tests reset state via
+# ``_get_client.cache_clear()``.
+@lru_cache(maxsize=1)
 def _get_client() -> QdrantClient:
-    """Return a cached Qdrant client."""
-    global _client
-    if _client is None:
-        from qdrant_client import QdrantClient as _QC
+    """Return a cached Qdrant client (thread-safe)."""
+    from qdrant_client import QdrantClient as _QC
 
-        _client = _QC(host=_qcfg.host, port=_qcfg.port, prefer_grpc=_qcfg.prefer_grpc)
-    return _client
+    return _QC(host=_qcfg.host, port=_qcfg.port, prefer_grpc=_qcfg.prefer_grpc)
 
 
 # ---------------------------------------------------------------------------

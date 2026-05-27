@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from arastirma_ussu.config import QdrantConfig
@@ -16,9 +17,6 @@ logger = logging.getLogger(__name__)
 
 _cfg = QdrantConfig()
 MAX_POINTS = _cfg.max_conversation_points
-
-# Module-level singleton
-_memory: ConversationMemory | None = None
 
 
 class ConversationMemory:
@@ -169,9 +167,34 @@ class ConversationMemory:
             )
 
 
+# R89-65b AU-L2-03b re-do: TOCTOU-safe lazy singleton via functools.lru_cache.
+# Sister to embed.py ``_get_model`` (see that module for the full rationale).
+#
+# Note on the ``client`` parameter: lru_cache keys on positional + keyword args,
+# so callers passing an explicit ``client`` get their own instance (semantically
+# correct — a different client means a different memory). The singleton
+# behaviour only applies to the default ``client=None`` path, which is the
+# production call site (``agent/graph.py``, ``memory/tool.py``). Tests pass
+# ``client=<mock>``; each gets a fresh memory + Qdrant client.
+#
+# Because ``QdrantClient`` instances are not hashable, we route the default
+# path through a separate zero-arg helper (``_get_default_memory``) and only
+# cache that. Custom-client calls construct a fresh ``ConversationMemory``
+# every time (no cache; explicit client = explicit identity).
+@lru_cache(maxsize=1)
+def _get_default_memory() -> ConversationMemory:
+    """Singleton ConversationMemory backed by the default Qdrant client."""
+    return ConversationMemory(client=None)
+
+
 def get_memory(client: QdrantClient | None = None) -> ConversationMemory:
-    """Return the singleton ConversationMemory instance."""
-    global _memory
-    if _memory is None:
-        _memory = ConversationMemory(client=client)
-    return _memory
+    """Return a ConversationMemory instance.
+
+    For the default ``client=None`` path the same singleton is returned across
+    concurrent first callers (thread-safe via CPython's GIL + lru_cache fill
+    atomicity). When ``client`` is provided explicitly, a fresh instance is
+    constructed — each explicit client gets its own memory.
+    """
+    if client is None:
+        return _get_default_memory()
+    return ConversationMemory(client=client)
