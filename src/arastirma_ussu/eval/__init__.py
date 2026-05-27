@@ -1,9 +1,9 @@
-"""Layer 5.5 — RAGAS LLM-as-Judge (deneysel).
+"""Layer 5.5 - RAGAS LLM-as-Judge (experimental).
 
 Skeleton module wraps RAGAS metrics (faithfulness, answer_relevancy,
 context_recall) behind a single ``evaluate_answer`` call. Real RAGAS
 execution requires the ``[layer55]`` extra (``ragas`` + ``datasets``)
-plus a configured judge LLM (Ollama recommended for lokal-first).
+plus a configured judge LLM (Ollama recommended for local-first).
 
 Tests for this layer are gated behind the ``experimental`` pytest
 marker and skipped by default.
