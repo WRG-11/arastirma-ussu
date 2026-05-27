@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "arastirma-ussu"
 version = "0.1.0"
-description = "Kisisel AI arastirma asistani — LangGraph, LlamaIndex, Qdrant, CrewAI"
+description = "Personal AI research assistant - LangGraph, LlamaIndex, Qdrant, CrewAI (Turkish-language product, English developer surface)"
 requires-python = ">=3.11"
 license = "MIT"
 
@@ -61,7 +61,7 @@ addopts = ["-p", "no:logfire"]
 markers = [
     "smoke: quick sanity check (no Ollama needed unless stated)",
     "integration: needs Ollama running, slower",
-    "experimental: Layer 5.5 LLM-as-judge (deneysel)",
+    "experimental: Layer 5.5 LLM-as-judge (experimental)",
 ]
 
 [tool.coverage.run]

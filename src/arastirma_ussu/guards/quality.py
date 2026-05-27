@@ -1,4 +1,4 @@
-"""Deterministic quality guards — length, repetition, language, ROUGE."""
+"""Deterministic quality guards - length, repetition, language, ROUGE."""
 
 from __future__ import annotations
 
@@ -17,24 +17,24 @@ _SENTENCE_RE = re.compile(r"[.!?]+\s+")
 
 
 def check_length(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult:
-    """Check answer length — empty/very short answers are suspicious."""
+    """Check answer length - empty/very short answers are suspicious."""
     length = len(inp.answer.strip())
     if length < config.min_answer_length:
-        return GuardResult("check_length", Severity.FAIL, f"Cevap cok kisa ({length} karakter)")
+        return GuardResult("check_length", Severity.FAIL, f"Answer is too short ({length} chars)")
     if length < config.warn_answer_length:
-        return GuardResult("check_length", Severity.WARN, f"Cevap kisa ({length} karakter)")
-    return GuardResult("check_length", Severity.PASS, "Uzunluk yeterli")
+        return GuardResult("check_length", Severity.WARN, f"Answer is short ({length} chars)")
+    return GuardResult("check_length", Severity.PASS, "Length OK")
 
 
 def check_repetition(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult:
     """Detect degenerate repetition at sentence level."""
     text = inp.answer.strip()
     if not text:
-        return GuardResult("check_repetition", Severity.PASS, "Bos metin")
+        return GuardResult("check_repetition", Severity.PASS, "Empty text")
 
     sentences = [s.strip() for s in _SENTENCE_RE.split(text) if s.strip()]
     if len(sentences) <= 1:
-        return GuardResult("check_repetition", Severity.PASS, "Tek cumle")
+        return GuardResult("check_repetition", Severity.PASS, "Single sentence")
 
     unique = len(set(s.lower() for s in sentences))
     ratio = unique / len(sentences)
@@ -42,54 +42,54 @@ def check_repetition(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult
     if ratio < config.repetition_fail_ratio:
         return GuardResult(
             "check_repetition", Severity.FAIL,
-            f"Agir tekrar (benzersiz/toplam: {ratio:.2f})", score=ratio,
+            f"Heavy repetition (unique/total: {ratio:.2f})", score=ratio,
         )
     if ratio < config.repetition_warn_ratio:
         return GuardResult(
             "check_repetition", Severity.WARN,
-            f"Tekrar tespit edildi (benzersiz/toplam: {ratio:.2f})", score=ratio,
+            f"Repetition detected (unique/total: {ratio:.2f})", score=ratio,
         )
-    return GuardResult("check_repetition", Severity.PASS, "Tekrar yok", score=ratio)
+    return GuardResult("check_repetition", Severity.PASS, "No repetition", score=ratio)
 
 
 def check_language(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult:
     """Check for garbage text and Turkish language presence."""
     text = inp.answer.strip()
     if not text:
-        return GuardResult("check_language", Severity.FAIL, "Bos metin")
+        return GuardResult("check_language", Severity.FAIL, "Empty text")
 
-    # Alpha ratio — catch garbage/numbers-only
+    # Alpha ratio - catch garbage/numbers-only
     alpha_count = sum(1 for c in text if c.isalpha())
     alpha_ratio = alpha_count / len(text)
 
     if alpha_ratio < 0.3:
-        return GuardResult("check_language", Severity.FAIL, f"Metin icerik orani dusuk ({alpha_ratio:.2f})")
+        return GuardResult("check_language", Severity.FAIL, f"Low alpha ratio ({alpha_ratio:.2f})")
 
-    # TR stopword detection — catch English drift
+    # TR stopword detection - catch English drift in the Turkish-language product surface
     words = text.lower().split()
     tr_count = sum(1 for w in words if w in _TR_STOPWORDS)
 
     if tr_count < config.min_tr_stopwords:
         return GuardResult(
             "check_language", Severity.WARN,
-            f"Turkce icerik az ({tr_count} TR stopword). Ingilizce drift olabilir.",
+            f"Low Turkish content ({tr_count} TR stopwords); possible English drift.",
         )
 
-    return GuardResult("check_language", Severity.PASS, "Dil kontrolu basarili")
+    return GuardResult("check_language", Severity.PASS, "Language check passed")
 
 
 def check_rouge(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult:
     """ROUGE-1 against source documents (when available)."""
     if not config.enable_rouge:
-        return GuardResult("check_rouge", Severity.PASS, "ROUGE devre disi")
+        return GuardResult("check_rouge", Severity.PASS, "ROUGE disabled")
 
     if not inp.sources:
-        return GuardResult("check_rouge", Severity.PASS, "Kaynak yok, ROUGE atlandi", score=None)
+        return GuardResult("check_rouge", Severity.PASS, "No sources, ROUGE skipped", score=None)
 
     try:
         from rouge_score.rouge_scorer import RougeScorer
     except ImportError:
-        return GuardResult("check_rouge", Severity.PASS, "rouge-score yuklu degil, atlandi", score=None)
+        return GuardResult("check_rouge", Severity.PASS, "rouge-score not installed, skipped", score=None)
 
     scorer = RougeScorer(["rouge1"], use_stemmer=False)
     reference = " ".join(inp.sources)
@@ -99,6 +99,6 @@ def check_rouge(inp: GuardInput, config: GuardConfig = _cfg) -> GuardResult:
     if r1_f1 < config.rouge_warn_threshold:
         return GuardResult(
             "check_rouge", Severity.WARN,
-            f"Dusuk ROUGE-1 ({r1_f1:.3f}) — kaynaklarla oertuesme az", score=r1_f1,
+            f"Low ROUGE-1 ({r1_f1:.3f}) - little overlap with sources", score=r1_f1,
         )
     return GuardResult("check_rouge", Severity.PASS, f"ROUGE-1: {r1_f1:.3f}", score=r1_f1)

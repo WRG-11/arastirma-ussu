@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """dolphin-mistral tool-calling sanity test.
 
-Sonuc:
-  PASS (exit 0) -> bind_tools calisiyor, Layer 1 native tool calling kullanir
-  FAIL (exit 1) -> bind_tools calismiyor, Layer 1 manuel ReAct parser kullanir
+Outcome:
+  PASS (exit 0) -> bind_tools works, Layer 1 uses native tool calling
+  FAIL (exit 1) -> bind_tools broken, Layer 1 uses the manual ReAct parser
 
-Bu karar Layer 1 mimarisini BELIRLER (fallback degil, default secim).
+This decision DETERMINES the Layer 1 architecture (not a fallback - the default choice).
 """
 
 import sys
@@ -16,7 +16,7 @@ from langchain_ollama import ChatOllama
 
 @tool
 def test_add(a: int, b: int) -> int:
-    """Iki sayiyi topla."""
+    """Add two numbers."""
     return a + b
 
 
@@ -32,22 +32,22 @@ def main():
         calls = resp.tool_calls if hasattr(resp, "tool_calls") else []
 
         if calls and calls[0].get("name") == "test_add":
-            print("PASS: bind_tools calisiyor")
-            print("KARAR: Layer 1 native tool calling kullanilacak")
+            print("PASS: bind_tools works")
+            print("DECISION: Layer 1 will use native tool calling")
             sys.exit(0)
         else:
-            content_preview = resp.content[:200] if resp.content else "(bos)"
-            print(f"FAIL: tool_calls bos veya yanlis.")
+            content_preview = resp.content[:200] if resp.content else "(empty)"
+            print(f"FAIL: tool_calls empty or wrong.")
             print(f"  Response: {content_preview}")
             print(f"  tool_calls: {calls}")
             print()
-            print("KARAR: Layer 1 manuel ReAct parser ile kurulacak")
+            print("DECISION: Layer 1 will be wired with the manual ReAct parser")
             sys.exit(1)
 
     except Exception as e:
-        print(f"FAIL: Exception — {e}")
+        print(f"FAIL: Exception - {e}")
         print()
-        print("KARAR: Layer 1 manuel ReAct parser ile kurulacak")
+        print("DECISION: Layer 1 will be wired with the manual ReAct parser")
         sys.exit(1)
 
 

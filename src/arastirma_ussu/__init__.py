@@ -1,3 +1,3 @@
-"""Arastirma Ussu — Kisisel AI arastirma asistani."""
+"""Arastirma Ussu (Research Base) - personal AI research assistant."""
 
 __version__ = "0.1.0"
