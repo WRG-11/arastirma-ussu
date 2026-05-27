@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,7 +20,6 @@ _qcfg = QdrantConfig()
 
 # Module-level state
 _client: QdrantClient | None = None
-_client_lock = threading.Lock()
 _collection_ready: bool = False
 
 
@@ -30,26 +28,12 @@ _collection_ready: bool = False
 # ---------------------------------------------------------------------------
 
 def _get_client() -> QdrantClient:
-    """Return a cached Qdrant client (thread-safe via double-checked lock).
-
-    R89-20b AU-L2-01: pre-fix this used a plain ``if _client is None`` TOCTOU
-    check. Under concurrent startup, two threads could both observe ``None``
-    and both instantiate ``QdrantClient(...)``; the second assignment
-    silently replaced the first, leaving any in-flight queries against the
-    first connection orphaned. Double-checked locking eliminates the race
-    while preserving the fast path (no lock on the hot read).
-    """
+    """Return a cached Qdrant client."""
     global _client
     if _client is None:
-        with _client_lock:
-            if _client is None:
-                from qdrant_client import QdrantClient as _QC
+        from qdrant_client import QdrantClient as _QC
 
-                _client = _QC(
-                    host=_qcfg.host,
-                    port=_qcfg.port,
-                    prefer_grpc=_qcfg.prefer_grpc,
-                )
+        _client = _QC(host=_qcfg.host, port=_qcfg.port, prefer_grpc=_qcfg.prefer_grpc)
     return _client
 
 
