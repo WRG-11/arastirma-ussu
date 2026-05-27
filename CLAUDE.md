@@ -5,8 +5,8 @@ Kisisel AI arastirma asistani. 5 katmanli mimari. Ollama local LLM.
 Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 
 ## Memory & Context Discipline
-- Memory dizini: `C:\Users\lenovo\.claude\projects\D--dev-arastirma-ussu\memory\`
-- WRG / ai-security cross-pollination: OTOMATIK SYNC YOK. Manuel kopyalama.
+- Memory dizini: `<user-home>/.claude/projects/<project-memory-dir>/memory/`
+- Diger proje cross-pollination: OTOMATIK SYNC YOK. Manuel kopyalama.
 - Kod-derive edilebilen bilgileri memory'ye YAZMA (dosya yapisi, fonksiyon imzalari vb.)
 - Archive pattern: stale memory'ye `archived: true` frontmatter ekle, silme
 
@@ -32,7 +32,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Layer 2: LlamaIndex (veri okuma/indeksleme)
 - Layer 3: Qdrant (vektor DB, ChromaDB yerine)
 - Layer 4: CrewAI (multi-agent, LangGraph tool olarak cagirilir)
-- Layer 5: Deterministik kalite metrikleri + guard pipeline (ai-security'den fork)
+- Layer 5: Deterministik kalite metrikleri + guard pipeline (sister project fork)
 - Layer 5.5: RAGAS LLM-as-judge (opsiyonel, deneysel, kullaniciya gosterilmez)
 - UI: Gradio chat arayuzu (app.py, port 7861)
 
@@ -63,7 +63,7 @@ Guvenlik disi, yaratici portfolyo parcasi. Tek gelistirici, kisisel proje.
 - Model evrimi: dolphin-mistral:7B (Turkce zayif) → qwen2.5:3B (2026-05-03) → qwen2.5:7B (2026-05-04, kalite icin); prompt+guard+retry 3 katmanli savunma var ama %100 degil
 - Ilk tur guard: LLM tool cagirmadan Final Answer verirse doc_search/memory_search'e zorlanir
 - pyarrow import sirasinda Windows access violation uyarisi — test sonucunu etkilemiyor
-- CI quota wall (WRG-11 org Actions): 2026-06-01 reset; bu tarihe kadar admin merge / local-verified disiplini
+- CI quota siniri (org Actions): periyot reset bekleniyor; bu tarihe kadar local-verified + merge disiplini
 
 ## Sik Komutlar
 ```bash
