@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING
 
 from arastirma_ussu.config import IngestConfig
@@ -14,27 +13,15 @@ _cfg = IngestConfig()
 
 # Module-level lazy singleton
 _model: SentenceTransformer | None = None
-_model_lock = threading.Lock()
 
 
 def _get_model() -> SentenceTransformer:
-    """Load embedding model on first call, cache thereafter (thread-safe).
-
-    R89-20b AU-L2-03a: pre-fix this used a plain ``if _model is None``
-    TOCTOU check. SentenceTransformer load is heavy (multi-second cold
-    start downloading / mmapping weights); two threads racing both saw
-    None and both loaded the model -> doubled memory + wasted I/O,
-    with the second load silently replacing the first reference.
-    Double-checked locking serialises the first load; subsequent calls
-    take the fast path with no lock cost.
-    """
+    """Load embedding model on first call, cache thereafter."""
     global _model
     if _model is None:
-        with _model_lock:
-            if _model is None:
-                from sentence_transformers import SentenceTransformer
+        from sentence_transformers import SentenceTransformer
 
-                _model = SentenceTransformer(_cfg.embedding_model, device="cpu")
+        _model = SentenceTransformer(_cfg.embedding_model, device="cpu")
     return _model
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -20,7 +19,6 @@ MAX_POINTS = _cfg.max_conversation_points
 
 # Module-level singleton
 _memory: ConversationMemory | None = None
-_memory_lock = threading.Lock()
 
 
 class ConversationMemory:
@@ -172,19 +170,8 @@ class ConversationMemory:
 
 
 def get_memory(client: QdrantClient | None = None) -> ConversationMemory:
-    """Return the singleton ConversationMemory instance (thread-safe).
-
-    R89-20b AU-L2-03b: pre-fix this used a plain ``if _memory is None``
-    TOCTOU check. ConversationMemory ``__init__`` opens a Qdrant
-    connection and may create a collection; concurrent first-call
-    races could spawn two instances, both touching the same collection
-    metadata + leaving the loser orphaned (its connection never
-    closed). Double-checked locking eliminates the race while keeping
-    the hot read lock-free.
-    """
+    """Return the singleton ConversationMemory instance."""
     global _memory
     if _memory is None:
-        with _memory_lock:
-            if _memory is None:
-                _memory = ConversationMemory(client=client)
+        _memory = ConversationMemory(client=client)
     return _memory
