@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 import sys
 import types
-from unittest.mock import MagicMock
 
 import pytest
 
