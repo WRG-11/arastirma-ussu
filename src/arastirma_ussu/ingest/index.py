@@ -175,12 +175,30 @@ def query_index(
         return "Indekslenmis belge bulunamadi. data/documents/ dizinine dosya ekleyin."
 
     vector = embed_query(query)
-    results = c.query_points(
-        collection_name=col,
-        query=vector,
-        limit=top_k,
-        with_payload=True,
-    )
+    try:
+        results = c.query_points(
+            collection_name=col,
+            query=vector,
+            limit=top_k,
+            with_payload=True,
+        )
+    except Exception as exc:
+        # R89-21b AU-L2-07 (re-do R89-65b Phase B): previously no try/except
+        # around the Qdrant query call. Backend failures (Qdrant down, schema
+        # drift, auth expiry) propagated as raw exceptions to the caller --
+        # which is the agent tool wrapper that does
+        # ``except Exception as e: observation = f"Tool error: {e}"``. That
+        # round-trips the raw exception string back into the LLM context
+        # (sister leak to AU-L2-05 web_search). Fix: catch, log server-side,
+        # return a stable Turkish sentinel. Do NOT re-raise -- caller's catch
+        # leaks exception text.
+        # Pattern 48 honest-discipline: catch ``Exception`` (rather than
+        # specific Qdrant exception classes) intentional -- the Qdrant client
+        # exception taxonomy is unstable across versions and we treat ANY
+        # backend failure identically (sentinel + log). Comment encodes the
+        # decision so future readers don't narrow it inappropriately.
+        logger.warning("query_points failed for collection %s: %s", col, exc)
+        return "Belge sorgusu su anda yapilamadi."
 
     if not results.points:
         return "Sorguyla eslesen belge parcasi bulunamadi."
