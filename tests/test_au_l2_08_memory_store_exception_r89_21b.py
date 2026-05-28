@@ -24,40 +24,34 @@ import pytest
 def memory_with_mocked_client(monkeypatch):
     """Build a ConversationMemory with an entirely mocked Qdrant client.
 
-    Stubs qdrant_client + qdrant_client.models so the lazy import in
-    ``ConversationMemory.save`` succeeds without the real package
-    installed. monkeypatch auto-restores sys.modules at teardown
-    (R89-20b hygiene -- avoid cross-test pollution).
+    R89-71b (amend): the previous incarnation of this fixture stubbed
+    ``qdrant_client`` + ``qdrant_client.models`` via
+    ``monkeypatch.setitem(sys.modules, ...)`` + ``delitem`` + re-import to
+    accommodate environments without the real qdrant-client installed.
+    That worked in isolation but polluted later tests (specifically
+    ``test_memory.py::test_lru_eviction``) on CI: the re-imported
+    ``arastirma_ussu.memory.store`` module shadow-effected the original
+    in a way that caused LRU eviction to silently no-op when the real
+    ``memory_client`` fixture ran subsequently. Root cause: cumulative
+    delitem/re-import cycles fragmented module identity even after
+    monkeypatch restored ``sys.modules``.
+
+    Fix: assume qdrant-client is installed (it is in CI + project deps),
+    use ``ConversationMemory.__new__`` to bypass ``__init__``, and rely
+    purely on attribute-level mocks. No sys.modules manipulation -> no
+    cross-test pollution. This preserves the AU-L2-08 wrap assertions
+    (exception text never reaches caller, MemoryStoreError raised, log
+    emitted) without the unsafe import-machinery dance.
     """
-    import sys
-    import types
-
-    stub_qc = types.ModuleType("qdrant_client")
-    stub_qc.QdrantClient = MagicMock()  # type: ignore[attr-defined]
-    stub_models = types.ModuleType("qdrant_client.models")
-
-    class _PointStruct:
-        def __init__(self, *a, **kw):
-            self.args = a
-            self.kw = kw
-
-    stub_models.PointStruct = _PointStruct  # type: ignore[attr-defined]
-    stub_models.Distance = type("D", (), {"COSINE": "cosine"})  # type: ignore[attr-defined]
-    stub_models.PayloadSchemaType = type("P", (), {"KEYWORD": "keyword"})  # type: ignore[attr-defined]
-    stub_models.VectorParams = lambda *a, **kw: None  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "qdrant_client", stub_qc)
-    monkeypatch.setitem(sys.modules, "qdrant_client.models", stub_models)
-    # Force fresh import so lazy 'from qdrant_client...' picks up stubs
-    monkeypatch.delitem(sys.modules, "arastirma_ussu.memory.store", raising=False)
-
-    # Stub embed so we don't load SentenceTransformer
+    # Stub embed so we don't load SentenceTransformer in save(). Patched
+    # via monkeypatch.setattr -> auto-restores cleanly at teardown.
     import arastirma_ussu.ingest.embed as embed_mod
 
     monkeypatch.setattr(embed_mod, "embed_query", lambda q: [0.1, 0.2, 0.3])
 
     from arastirma_ussu.memory.store import ConversationMemory
 
-    # Bypass __init__'s collection-ensure path
+    # Bypass __init__'s collection-ensure path (no real Qdrant connection).
     instance = ConversationMemory.__new__(ConversationMemory)
     instance._client = MagicMock()
     instance._collection = "test_collection"
