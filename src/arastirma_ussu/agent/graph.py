@@ -235,6 +235,19 @@ def build_graph(
             except Exception as e:
                 observation = f"Tool error: {e}"
 
+        # R89-21b AU-L2-11 (re-do R89-65b Phase B): neuter any literal
+        # ``</TOOL_OUTPUT>`` (or opening ``<TOOL_OUTPUT>``) substrings that an
+        # adversarial tool response might contain. Without this, an attacker
+        # could forge a closing tag mid-observation to "exit" the wrapper and
+        # start injecting agent instructions (sister to R89-19b AU-L2-09/10
+        # USER_INPUT input tag wrap; this is the output-filter half of the
+        # boundary discipline).
+        observation = (
+            str(observation)
+            .replace("</TOOL_OUTPUT>", "</_TOOL_OUTPUT>")
+            .replace("<TOOL_OUTPUT>", "<_TOOL_OUTPUT>")
+        )
+
         obs_message = HumanMessage(
             content=OBSERVATION_TEMPLATE.format(observation=observation)
         )
