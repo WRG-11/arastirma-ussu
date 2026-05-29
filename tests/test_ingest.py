@@ -72,80 +72,42 @@ class TestLoaderSmoke:
 
 @pytest.mark.integration
 class TestIndexIntegration:
-    def test_build_index_from_txt(self, skip_no_llamaindex, tmp_doc_dir, tmp_path):
-        from arastirma_ussu.ingest.index import _build_index
+    # Layer 3 (Qdrant) integration tests.  memory_client provides an in-memory
+    # Qdrant instance — no running server needed.  skip_no_llamaindex guards the
+    # SentenceSplitter import inside _build_collection.
 
-        index_dir = tmp_path / "index"
-        index = _build_index(
-            doc_dir=tmp_doc_dir,
-            persist_dir=index_dir,
-            force_rebuild=True,
-        )
-        assert index is not None
+    def test_build_collection_from_txt(self, skip_no_llamaindex, tmp_doc_dir, memory_client):
+        from arastirma_ussu.ingest.index import _build_collection
 
-    def test_query_returns_content(self, skip_no_llamaindex, tmp_doc_dir, tmp_path):
-        from arastirma_ussu.ingest.index import _build_index, query_index, _apply_settings
-        import arastirma_ussu.ingest.index as idx_mod
+        result = _build_collection(doc_dir=tmp_doc_dir, client=memory_client, force_rebuild=True)
+        assert result is True
 
-        _apply_settings()
-        index_dir = tmp_path / "index"
-        idx_mod._index = _build_index(
-            doc_dir=tmp_doc_dir,
-            persist_dir=index_dir,
-            force_rebuild=True,
-        )
-        assert idx_mod._index is not None
+    def test_build_collection_stores_chunks(self, skip_no_llamaindex, tmp_doc_dir, memory_client):
+        from arastirma_ussu.ingest.index import _build_collection
+        from arastirma_ussu.config import QdrantConfig
 
-        result = query_index("Python yaraticisi")
-        assert "Guido" in result or "Python" in result
+        _build_collection(doc_dir=tmp_doc_dir, client=memory_client, force_rebuild=True)
+        col_name = QdrantConfig().documents_collection
+        count = memory_client.count(collection_name=col_name)
+        assert count.count > 0
 
-    def test_persist_and_reload(self, skip_no_llamaindex, tmp_doc_dir, tmp_path):
-        from arastirma_ussu.ingest.index import _build_index, _apply_settings
-        import arastirma_ussu.ingest.index as idx_mod
+    def test_rebuild_clears_and_recreates(self, skip_no_llamaindex, tmp_doc_dir, memory_client):
+        from arastirma_ussu.ingest.index import _build_collection
 
-        _apply_settings()
-        index_dir = tmp_path / "index"
+        r1 = _build_collection(doc_dir=tmp_doc_dir, client=memory_client, force_rebuild=True)
+        r2 = _build_collection(doc_dir=tmp_doc_dir, client=memory_client, force_rebuild=True)
+        assert r1 is True
+        assert r2 is True
 
-        # Build and persist
-        idx1 = _build_index(doc_dir=tmp_doc_dir, persist_dir=index_dir, force_rebuild=True)
-        assert idx1 is not None
-        assert (index_dir / "docstore.json").exists()
+    def test_empty_documents_graceful(self, skip_no_llamaindex, tmp_path, memory_client):
+        from arastirma_ussu.ingest.index import _build_collection
 
-        # Clear singleton, reload from disk
-        idx_mod._index = None
-        idx2 = _build_index(doc_dir=tmp_doc_dir, persist_dir=index_dir, force_rebuild=False)
-        assert idx2 is not None
-
-    def test_empty_documents_graceful(self, skip_no_llamaindex, tmp_path):
-        from arastirma_ussu.ingest.index import _build_index, query_index, _apply_settings
-        import arastirma_ussu.ingest.index as idx_mod
-
-        _apply_settings()
         empty_dir = tmp_path / "empty_docs"
         empty_dir.mkdir()
-        index_dir = tmp_path / "index"
+        result = _build_collection(doc_dir=empty_dir, client=memory_client, force_rebuild=True)
+        assert result is False
 
-        idx_mod._index = _build_index(
-            doc_dir=empty_dir, persist_dir=index_dir, force_rebuild=True
-        )
-        # _index is None because no documents
-        assert idx_mod._index is None
-
-        result = query_index("anything")
-        assert "bulunamadi" in result.lower() or "ekleyin" in result.lower()
-
-    def test_doc_search_end_to_end(self, skip_no_llamaindex, tmp_doc_dir, tmp_path):
-        from arastirma_ussu.ingest.index import _build_index, _apply_settings
-        import arastirma_ussu.ingest.index as idx_mod
-
-        _apply_settings()
-        index_dir = tmp_path / "index"
-        idx_mod._index = _build_index(
-            doc_dir=tmp_doc_dir,
-            persist_dir=index_dir,
-            force_rebuild=True,
-        )
-
+    def test_doc_search_end_to_end(self, skip_no_qdrant):
         result = doc_search("Python programlama")
         assert isinstance(result, str)
         assert len(result) > 10
